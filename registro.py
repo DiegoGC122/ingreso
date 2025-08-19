@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime
+from zoneinfo import ZoneInfo  # Usa pytz si estás en Python < 3.9
 import smtplib
 from email.mime.text import MIMEText
 
@@ -23,23 +24,24 @@ def enviar_correo(destinatario, asunto, cuerpo):
 
 # 🧠 Validación principal
 def validar_registro(nombre, novedad, horario_df):
-    hora_entrada_real = datetime.now().time()
+    hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
     hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
 
     if not hora_entrada_asignada:
         st.warning("⚠️ No tienes turno asignado hoy.")
         return
 
-    h1 = datetime.combine(datetime.today(), hora_entrada_asignada)
-    h2 = datetime.combine(datetime.today(), hora_entrada_real)
+    hoy = datetime.now(ZoneInfo("America/Bogota")).date()
+    h1 = datetime.combine(hoy, hora_entrada_asignada)
+    h2 = datetime.combine(hoy, hora_entrada_real)
     minutos_diferencia = (h2 - h1).total_seconds() / 60
 
     if minutos_diferencia > 5 and not novedad:
         estado = "Tarde"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
-            f"📅 Fecha: {datetime.today().date()}\n"
-            f"🕒 Hora registrada (PC): {hora_entrada_real.strftime('%H:%M')}\n"
+            f"📅 Fecha: {hoy}\n"
+            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
             f"📌 Estado: Llegada tarde\n"
             f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
@@ -51,8 +53,8 @@ def validar_registro(nombre, novedad, horario_df):
         estado = "Con novedad"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
-            f"📅 Fecha: {datetime.today().date()}\n"
-            f"🕒 Hora registrada (PC): {hora_entrada_real.strftime('%H:%M')}\n"
+            f"📅 Fecha: {hoy}\n"
+            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
             f"📌 Estado: Con novedad\n"
             f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
@@ -83,13 +85,13 @@ def main():
 
     nombre = st.selectbox("Selecciona tu nombre", nombres)
 
-    # Obtener hora asignada y hora actual
+    # Obtener hora asignada y hora actual (Colombia)
     hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
-    hora_entrada_real = datetime.now().time()
+    hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
 
     # Mostrar horarios
     st.markdown("### 🕒 Horarios")
-    st.write(f"**Hora actual (PC):** {hora_entrada_real.strftime('%H:%M')}")
+    st.write(f"**Hora actual (PC - Colombia):** {hora_entrada_real.strftime('%H:%M')}")
 
     if hora_entrada_asignada and hora_salida_asignada:
         st.write(f"**Hora asignada:** {hora_entrada_asignada.strftime('%H:%M')} - {hora_salida_asignada.strftime('%H:%M')}")
