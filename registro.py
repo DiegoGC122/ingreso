@@ -2,7 +2,6 @@ import streamlit as st
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
-import os
 
 from data import cargar_turnos, obtener_horario_asignado, guardar_registro, obtener_nombres_analistas
 from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREO_SUPERVISOR
@@ -71,10 +70,6 @@ def validar_registro(nombre, novedad, horario_df):
 # 🖥️ Interfaz Streamlit
 def main():
     st.title("📋 Registro de entrada de analistas")
-
-    # Mostrar archivos disponibles en el entorno (debug)
-    st.write("📁 Archivos disponibles en el entorno:")
-    st.write(os.listdir())
 
     horario_df = cargar_turnos()
     if horario_df.empty:
