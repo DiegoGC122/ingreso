@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo  # Usa pytz si estás en Python < 3.9
 import unicodedata
 from config import RUTA_TURNOS, RUTA_REGISTROS
 
@@ -27,7 +28,7 @@ def obtener_horario_asignado(nombre):
         return None, None
 
     # Traducir día actual al formato de columna
-    dia_actual = datetime.today().strftime("%A").lower()
+    dia_actual = datetime.now(ZoneInfo("America/Bogota")).strftime("%A").lower()
     dias_traducidos = {
         "monday": "lunes",
         "tuesday": "martes",
@@ -43,8 +44,9 @@ def obtener_horario_asignado(nombre):
         print(f"❌ No se encontró la columna para el día '{dia_columna}'.")
         return None, None
 
-    # Buscar por nombre en la primera columna
-    df_filtrado = df[df.iloc[:, 0].astype(str).str.strip().str.lower() == nombre.strip().lower()]
+    # Buscar por nombre normalizado
+    nombre_normalizado = normalizar(nombre)
+    df_filtrado = df[df.iloc[:, 0].astype(str).apply(normalizar) == nombre_normalizado]
     if df_filtrado.empty:
         print(f"❌ No se encontró al analista '{nombre}'.")
         return None, None
@@ -80,9 +82,10 @@ def obtener_horario_asignado(nombre):
 
 # 🗂️ Guardar registro en archivo de auditoría
 def guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad=None, estado="OK"):
+    fecha_local = datetime.now(ZoneInfo("America/Bogota")).date()
     registro = {
         "nombre": nombre,
-        "fecha": datetime.today().date(),
+        "fecha": fecha_local,
         "hora_entrada": hora_entrada_real.strftime("%H:%M"),
         "hora_salida": hora_salida_real.strftime("%H:%M") if hora_salida_real else "",
         "novedad": novedad if novedad else "Sin novedad",
