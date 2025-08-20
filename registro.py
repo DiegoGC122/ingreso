@@ -6,27 +6,39 @@ from email.mime.text import MIMEText
 
 from data import cargar_turnos, obtener_horario_asignado, guardar_registro, obtener_nombres_analistas
 from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREOS_SUPERVISORES
+from correo_analistas import CORREOS_ANALISTAS, normalizar
 
-# 📤 Enviar correo a múltiples destinatarios
-def enviar_correo(destinatarios, asunto, cuerpo):
-    if isinstance(destinatarios, str):
-        destinatarios = [destinatarios]
+# 🔍 Búsqueda tolerante de correo
+def buscar_correo(nombre_entrada):
+    nombre_normalizado = normalizar(nombre_entrada)
+    for nombre_diccionario, correo in CORREOS_ANALISTAS.items():
+        if normalizar(nombre_diccionario) == nombre_normalizado:
+            return correo
+    return None
+
+# 📤 Enviar correo al analista y supervisores
+def enviar_correo_personalizado(nombre_analista, asunto, cuerpo):
+    correo_analista = buscar_correo(nombre_analista)
+    if not correo_analista:
+        st.warning(f"⚠️ No se encontró el correo del analista: {nombre_analista}")
+        return
+
+    destinatarios = [correo_analista] + CORREOS_SUPERVISORES
 
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
     msg['From'] = REMITENTE
-    msg['To'] = REMITENTE  # solo se muestra el remitente en el encabezado
-    msg['Bcc'] = ", ".join(destinatarios)  # supervisores ocultos
+    msg['To'] = REMITENTE
+    msg['Bcc'] = ", ".join(destinatarios)
 
     try:
         with smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO) as server:
             server.starttls()
             server.login(REMITENTE, PASSWORD)
             server.sendmail(REMITENTE, destinatarios, msg.as_string())
-        st.success("📧 Correo enviado correctamente.")
+        st.success("📧 Correo enviado al analista y supervisores.")
     except Exception as e:
         st.error(f"❌ Error al enviar el correo: {e}")
-
 
 # 🧠 Validación principal
 def validar_registro(nombre, novedad):
@@ -52,7 +64,7 @@ def validar_registro(nombre, novedad):
             f"📌 Estado: Llegada tarde\n"
             f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
         )
-        enviar_correo(CORREOS_SUPERVISORES, "Alerta de llegada tarde", mensaje)
+        enviar_correo_personalizado(nombre, "Alerta de llegada tarde", mensaje)
         st.warning("📧 Se ha enviado una alerta por tardanza.")
 
     elif novedad:
@@ -66,7 +78,7 @@ def validar_registro(nombre, novedad):
             f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
             f"No se considera tardanza por justificación."
         )
-        enviar_correo(CORREOS_SUPERVISORES, "Novedad registrada", mensaje)
+        enviar_correo_personalizado(nombre, "Novedad registrada", mensaje)
         st.warning("📧 Se ha enviado una alerta por novedad.")
 
     else:

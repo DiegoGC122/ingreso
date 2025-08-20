@@ -18,6 +18,7 @@ CORREOS_SUPERVISORES = [
     "sandraseneth.tibavizco.contractor@bbva.com",
     "andreacarolina.torres.contractor@bbva.com",
     "johnhenry.marin.contractor@bbva.com",
-    "joseguillermo.lozano.contractor@bbva.com"
+    "joseguillermo.lozano.contractor@bbva.com",
+    
 ]
-#hola funciona 
+
