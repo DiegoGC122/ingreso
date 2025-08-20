@@ -10,15 +10,17 @@ SMTP_PORT = int(os.getenv("SMTP_PORT"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 REMITENTE_EMAIL = os.getenv("REMITENTE_EMAIL")
-SUPERVISOR_EMAIL = os.getenv("SUPERVISOR_EMAIL")
+SUPERVISOR_EMAIL = os.getenv("SUPERVISOR_EMAIL")  # puede ser una lista separada por comas
 
 def enviar_correo(nombre, tipo_alerta, mensaje):
     asunto = f"[Alerta de ingreso] {tipo_alerta} - {nombre}"
 
+    destinatarios = SUPERVISOR_EMAIL.split(",")  # permite múltiples correos separados por coma
+
     msg = EmailMessage()
     msg["Subject"] = asunto
     msg["From"] = REMITENTE_EMAIL
-    msg["To"] = SUPERVISOR_EMAIL
+    msg["To"] = ", ".join(destinatarios)
     msg.set_content(
         f"""
 🧑 Analista: {nombre}
@@ -35,7 +37,7 @@ Este correo fue generado automáticamente por el sistema de validación de asist
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
+            server.sendmail(REMITENTE_EMAIL, destinatarios, msg.as_string())
         print("✅ Correo enviado correctamente.")
     except Exception as e:
         print("❌ Error al enviar el correo:", e)

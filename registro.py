@@ -1,29 +1,33 @@
 import streamlit as st
 from datetime import datetime
-from zoneinfo import ZoneInfo  # Usa pytz si estás en Python < 3.9
+from zoneinfo import ZoneInfo
 import smtplib
 from email.mime.text import MIMEText
 
 from data import cargar_turnos, obtener_horario_asignado, guardar_registro, obtener_nombres_analistas
-from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREO_SUPERVISOR
+from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREOS_SUPERVISORES
 
-# 📤 Enviar correo
-def enviar_correo(destinatario, asunto, cuerpo):
+# 📤 Enviar correo a múltiples destinatarios
+def enviar_correo(destinatarios, asunto, cuerpo):
+    if isinstance(destinatarios, str):
+        destinatarios = [destinatarios]
+
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
     msg['From'] = REMITENTE
-    msg['To'] = destinatario
+    msg['To'] = ", ".join(destinatarios)
 
     try:
         with smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO) as server:
             server.starttls()
             server.login(REMITENTE, PASSWORD)
-            server.sendmail(REMITENTE, destinatario, msg.as_string())
+            server.sendmail(REMITENTE, destinatarios, msg.as_string())
+        st.info(f"📧 Correo enviado a: {', '.join(destinatarios)}")
     except Exception as e:
         st.error(f"❌ Error al enviar el correo: {e}")
 
 # 🧠 Validación principal
-def validar_registro(nombre, novedad, horario_df):
+def validar_registro(nombre, novedad):
     hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
     hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
 
@@ -46,7 +50,7 @@ def validar_registro(nombre, novedad, horario_df):
             f"📌 Estado: Llegada tarde\n"
             f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
         )
-        enviar_correo(CORREO_SUPERVISOR, "Alerta de llegada tarde", mensaje)
+        enviar_correo(CORREOS_SUPERVISORES, "Alerta de llegada tarde", mensaje)
         st.warning("📧 Se ha enviado una alerta por tardanza.")
 
     elif novedad:
@@ -60,7 +64,7 @@ def validar_registro(nombre, novedad, horario_df):
             f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
             f"No se considera tardanza por justificación."
         )
-        enviar_correo(CORREO_SUPERVISOR, "Novedad registrada", mensaje)
+        enviar_correo(CORREOS_SUPERVISORES, "Novedad registrada", mensaje)
         st.warning("📧 Se ha enviado una alerta por novedad.")
 
     else:
@@ -73,11 +77,6 @@ def validar_registro(nombre, novedad, horario_df):
 def main():
     st.title("📋 Registro de entrada de analistas")
 
-    horario_df = cargar_turnos()
-    if horario_df.empty:
-        st.error("❌ No se pudo cargar el archivo de turnos.")
-        return
-
     nombres = obtener_nombres_analistas()
     if not nombres:
         st.error("❌ No se encontraron nombres en el archivo.")
@@ -85,18 +84,19 @@ def main():
 
     nombre = st.selectbox("Selecciona tu nombre", nombres)
 
-    # Obtener hora asignada y hora actual (Colombia)
-    hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
-    hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
-
-    # Mostrar horarios
+    # Mostrar hora actual
+    hora_actual = datetime.now(ZoneInfo("America/Bogota")).time()
     st.markdown("### 🕒 Horarios")
-    st.write(f"**Hora actual (PC - Colombia):** {hora_entrada_real.strftime('%H:%M')}")
+    st.write(f"**Hora actual (PC - Colombia):** {hora_actual.strftime('%H:%M')}")
+
+    # Mostrar horario asignado automáticamente
+    bloque_horario = st.empty()
+    hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
 
     if hora_entrada_asignada and hora_salida_asignada:
-        st.write(f"**Hora asignada:** {hora_entrada_asignada.strftime('%H:%M')} - {hora_salida_asignada.strftime('%H:%M')}")
+        bloque_horario.success(f"🕓 Tu horario hoy es: **{hora_entrada_asignada.strftime('%H:%M')} - {hora_salida_asignada.strftime('%H:%M')}**")
     else:
-        st.warning("⚠️ No tienes turno asignado hoy.")
+        bloque_horario.warning("⚠️ No tienes turno asignado hoy.")
         return
 
     # Desplegable de novedades
@@ -107,10 +107,10 @@ def main():
         "Error con el ingreso al edificio"
     ]
     novedad = st.selectbox("¿Tienes alguna novedad?", opciones_novedad)
+    novedad_final = None if novedad == "Sin novedad" else novedad
 
     if st.button("Registrar entrada"):
-        novedad_final = None if novedad == "Sin novedad" else novedad
-        validar_registro(nombre.strip(), novedad_final, horario_df)
+        validar_registro(nombre.strip(), novedad_final)
 
 if __name__ == "__main__":
     main()

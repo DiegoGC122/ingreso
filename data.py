@@ -1,50 +1,50 @@
 import pandas as pd
 from datetime import datetime
-from zoneinfo import ZoneInfo  # Usa pytz si estás en Python < 3.9
+from zoneinfo import ZoneInfo
 import unicodedata
 from config import RUTA_TURNOS, RUTA_REGISTROS
 
-# 🔤 Normalizar texto (elimina tildes, espacios, mayúsculas)
+# 🔤 Normalizar texto
 def normalizar(texto):
     if not isinstance(texto, str):
         return texto
     texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
     return texto.strip().lower()
 
-# 📥 Cargar archivo de turnos y estructurar correctamente
+# 📥 Cargar archivo de turnos
 def cargar_turnos():
     try:
         df = pd.read_excel(RUTA_TURNOS, header=None)
 
-        # Extraer fechas desde fila 1 (índice 1), columnas desde la 1 en adelante
-        fechas = df.iloc[1, 1:].tolist()
+        # Convertir fechas a formato uniforme
+        fechas = pd.to_datetime(df.iloc[1, 1:]).dt.strftime("%d/%m/%Y").tolist()
 
-        # Extraer nombres desde columna 0, filas desde la 2 en adelante
-        nombres = df.iloc[2:, 0].astype(str).apply(normalizar).tolist()
+        # Extraer horarios desde fila 2 en adelante
+        horarios_raw = df.iloc[2:, :]
+        horarios_raw = horarios_raw.dropna(subset=[0])  # Elimina filas sin nombre
 
-        # Extraer horarios desde fila 2 en adelante, columnas desde la 1
-        horarios = df.iloc[2:, 1:]
+        # Normalizar nombres
+        horarios_raw[0] = horarios_raw[0].astype(str).apply(normalizar)
+
+        # Construir DataFrame final
+        horarios = horarios_raw.iloc[:, 1:]
         horarios.columns = fechas
-        horarios.index = nombres
+        horarios.index = horarios_raw.iloc[:, 0].tolist()
 
         return horarios
     except Exception as e:
         print("❌ Error al leer el archivo de turnos:", e)
         return pd.DataFrame()
 
-# 📅 Obtener horario asignado para el día actual
+# 📅 Obtener horario asignado para la fecha actual
 def obtener_horario_asignado(nombre):
     horarios = cargar_turnos()
     if horarios.empty:
         return None, None
 
-    # Obtener fecha actual en formato dd/mm/yyyy
     fecha_actual = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
-
-    # Normalizar nombre
     nombre_normalizado = normalizar(nombre)
 
-    # Validar existencia
     if nombre_normalizado not in horarios.index:
         print(f"❌ No se encontró al analista '{nombre}'.")
         return None, None
@@ -55,7 +55,7 @@ def obtener_horario_asignado(nombre):
 
     horario_str = horarios.loc[nombre_normalizado, fecha_actual]
 
-    # Validar que el horario sea procesable
+    # Validar contenido
     if pd.isna(horario_str) or not isinstance(horario_str, str):
         print(f"⚠️ El analista '{nombre}' no tiene turno asignado hoy.")
         return None, None
@@ -73,13 +73,12 @@ def obtener_horario_asignado(nombre):
         entrada_str, salida_str = horario_str.split("-")
         hora_entrada = pd.to_datetime(entrada_str.strip()).time()
         hora_salida = pd.to_datetime(salida_str.strip()).time()
-
         return hora_entrada, hora_salida
     except Exception as e:
         print(f"❌ Error al procesar el horario '{horario_str}':", e)
         return None, None
 
-# 🗂️ Guardar registro en archivo de auditoría
+# 🗂️ Guardar registro
 def guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad=None, estado="OK"):
     fecha_local = datetime.now(ZoneInfo("America/Bogota")).date()
     registro = {
@@ -104,7 +103,7 @@ def guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad=None, 
     except Exception as e:
         print("❌ Error al guardar el registro:", e)
 
-# 📋 Obtener lista de nombres desde el archivo de turnos
+# 📋 Obtener lista de nombres
 def obtener_nombres_analistas():
     horarios = cargar_turnos()
     if horarios.empty:
