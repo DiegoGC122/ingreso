@@ -15,13 +15,13 @@ SUPERVISOR_EMAIL = os.getenv("SUPERVISOR_EMAIL")  # puede ser una lista separada
 def enviar_correo(nombre, tipo_alerta, mensaje):
     asunto = f"[Alerta de ingreso] {tipo_alerta} - {nombre}"
 
-    destinatarios = SUPERVISOR_EMAIL.split(",")  # permite múltiples correos separados por coma
+    destinatarios = SUPERVISOR_EMAIL.split(",")  # múltiples correos separados por coma
 
     msg = EmailMessage()
     msg["Subject"] = asunto
     msg["From"] = REMITENTE_EMAIL
-    msg["To"] = REMITENTE_EMAIL  # solo muestra el remitente
-    msg["Bcc"] = ", ".join(destinatarios)  # oculta los supervisores
+    msg["To"] = REMITENTE_EMAIL  # solo se muestra el remitente
+    msg["Bcc"] = ", ".join(destinatarios)  # supervisores ocultos
 
     msg.set_content(
         f"""
@@ -43,4 +43,5 @@ Este correo fue generado automáticamente por el sistema de validación de asist
         print("✅ Correo enviado correctamente.")
     except Exception as e:
         print("❌ Error al enviar el correo:", e)
+
 

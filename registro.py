@@ -15,18 +15,18 @@ def enviar_correo(destinatarios, asunto, cuerpo):
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
     msg['From'] = REMITENTE
-    msg["To"] = REMITENTE  # o un correo genérico como "notificaciones@empresa.com"
-    msg["Bcc"] = ", ".join(destinatarios)
-
+    msg['To'] = REMITENTE  # solo se muestra el remitente en el encabezado
+    msg['Bcc'] = ", ".join(destinatarios)  # supervisores ocultos
 
     try:
         with smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO) as server:
             server.starttls()
             server.login(REMITENTE, PASSWORD)
             server.sendmail(REMITENTE, destinatarios, msg.as_string())
-        st.info(f"📧 Correo enviado a: {', '.join(destinatarios)}")
+        st.success("📧 Correo enviado correctamente.")
     except Exception as e:
         st.error(f"❌ Error al enviar el correo: {e}")
+
 
 # 🧠 Validación principal
 def validar_registro(nombre, novedad):
