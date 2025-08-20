@@ -11,54 +11,52 @@ def normalizar(texto):
     texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
     return texto.strip().lower()
 
-# 📥 Cargar archivo de turnos y normalizar columnas
+# 📥 Cargar archivo de turnos y estructurar correctamente
 def cargar_turnos():
     try:
-        df = pd.read_excel(RUTA_TURNOS)
-        df.columns = [normalizar(col) for col in df.columns]
-        return df
+        df = pd.read_excel(RUTA_TURNOS, header=None)
+
+        # Extraer fechas desde fila 1 (índice 1), columnas desde la 1 en adelante
+        fechas = df.iloc[1, 1:].tolist()
+
+        # Extraer nombres desde columna 0, filas desde la 2 en adelante
+        nombres = df.iloc[2:, 0].astype(str).apply(normalizar).tolist()
+
+        # Extraer horarios desde fila 2 en adelante, columnas desde la 1
+        horarios = df.iloc[2:, 1:]
+        horarios.columns = fechas
+        horarios.index = nombres
+
+        return horarios
     except Exception as e:
-        print("❌ Error al leer el archivo:", e)
+        print("❌ Error al leer el archivo de turnos:", e)
         return pd.DataFrame()
 
 # 📅 Obtener horario asignado para el día actual
 def obtener_horario_asignado(nombre):
-    df = cargar_turnos()
-    if df.empty:
+    horarios = cargar_turnos()
+    if horarios.empty:
         return None, None
 
-    # Traducir día actual al formato de columna
-    dia_actual = datetime.now(ZoneInfo("America/Bogota")).strftime("%A").lower()
-    dias_traducidos = {
-        "monday": "lunes",
-        "tuesday": "martes",
-        "wednesday": "miercoles",
-        "thursday": "jueves",
-        "friday": "viernes",
-        "saturday": "sabado",
-        "sunday": "domingo"
-    }
-    dia_columna = dias_traducidos.get(dia_actual)
+    # Obtener fecha actual en formato dd/mm/yyyy
+    fecha_actual = datetime.now(ZoneInfo("America/Bogota")).strftime("%d/%m/%Y")
 
-    if dia_columna not in df.columns:
-        print(f"❌ No se encontró la columna para el día '{dia_columna}'.")
-        return None, None
-
-    # Buscar por nombre normalizado
+    # Normalizar nombre
     nombre_normalizado = normalizar(nombre)
-    df_filtrado = df[df.iloc[:, 0].astype(str).apply(normalizar) == nombre_normalizado]
-    if df_filtrado.empty:
+
+    # Validar existencia
+    if nombre_normalizado not in horarios.index:
         print(f"❌ No se encontró al analista '{nombre}'.")
         return None, None
 
-    horario_str = df_filtrado.iloc[0][dia_columna]
-
-    # Validar que el horario sea procesable
-    if pd.isna(horario_str):
-        print(f"⚠️ El analista '{nombre}' no tiene turno asignado hoy.")
+    if fecha_actual not in horarios.columns:
+        print(f"❌ No se encontró la fecha '{fecha_actual}' en el archivo.")
         return None, None
 
-    if not isinstance(horario_str, str):
+    horario_str = horarios.loc[nombre_normalizado, fecha_actual]
+
+    # Validar que el horario sea procesable
+    if pd.isna(horario_str) or not isinstance(horario_str, str):
         print(f"⚠️ El analista '{nombre}' no tiene turno asignado hoy.")
         return None, None
 
@@ -73,8 +71,9 @@ def obtener_horario_asignado(nombre):
 
     try:
         entrada_str, salida_str = horario_str.split("-")
-        hora_entrada = pd.to_datetime(entrada_str.strip(), format="%H:%M").time()
-        hora_salida = pd.to_datetime(salida_str.strip(), format="%H:%M").time()
+        hora_entrada = pd.to_datetime(entrada_str.strip()).time()
+        hora_salida = pd.to_datetime(salida_str.strip()).time()
+
         return hora_entrada, hora_salida
     except Exception as e:
         print(f"❌ Error al procesar el horario '{horario_str}':", e)
@@ -107,9 +106,7 @@ def guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad=None, 
 
 # 📋 Obtener lista de nombres desde el archivo de turnos
 def obtener_nombres_analistas():
-    df = cargar_turnos()
-    if df.empty:
+    horarios = cargar_turnos()
+    if horarios.empty:
         return []
-
-    nombres = df.iloc[:, 0].dropna().astype(str).str.strip().unique().tolist()
-    return nombres
+    return horarios.index.tolist()
