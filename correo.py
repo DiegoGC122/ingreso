@@ -20,7 +20,9 @@ def enviar_correo(nombre, tipo_alerta, mensaje):
     msg = EmailMessage()
     msg["Subject"] = asunto
     msg["From"] = REMITENTE_EMAIL
-    msg["To"] = ", ".join(destinatarios)
+    msg["To"] = REMITENTE_EMAIL  # solo muestra el remitente
+    msg["Bcc"] = ", ".join(destinatarios)  # oculta los supervisores
+
     msg.set_content(
         f"""
 🧑 Analista: {nombre}
@@ -41,3 +43,4 @@ Este correo fue generado automáticamente por el sistema de validación de asist
         print("✅ Correo enviado correctamente.")
     except Exception as e:
         print("❌ Error al enviar el correo:", e)
+

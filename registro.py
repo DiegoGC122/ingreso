@@ -15,7 +15,9 @@ def enviar_correo(destinatarios, asunto, cuerpo):
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
     msg['From'] = REMITENTE
-    msg['To'] = ", ".join(destinatarios)
+    msg["To"] = REMITENTE  # o un correo genérico como "notificaciones@empresa.com"
+    msg["Bcc"] = ", ".join(destinatarios)
+
 
     try:
         with smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO) as server:
