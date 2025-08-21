@@ -45,6 +45,17 @@ CORREOS_ANALISTAS = {
     "FABER SEBASTIAN FÚQUENE HERNANDEZ": "fabersebastian.fuquene.contractor@bbva.com"
 }
 
+CORREOS_INDIVIDUALES_SUPERVISORES={
+
+    "ANDREA CAROLINA TORRES NUÑEZ":"andreacarolina.torres.contractor@bbva.com",
+    "JOSE GUILLERMO LOZANO GUERRA": "joseguillermo.lozano.contractor@bbva.com",
+    "JURANI ROSAS":"jurani.rosas.contractor@bbva.com" ,
+    "JHON HENRY MARIN SANTOFIMIO":"johnhenry.marin.contractor@bbva.com"
+
+}
+
+
+
 # ✅ Función para normalizar nombres
 def normalizar(texto):
     return unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode().lower().strip()

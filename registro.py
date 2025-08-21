@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 
 from data import cargar_turnos, obtener_horario_asignado, guardar_registro, obtener_nombres_analistas
 from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREOS_SUPERVISORES
-from correo_analistas import CORREOS_ANALISTAS, normalizar
+from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_INDIVIDUALES_SUPERVISORES
 
 # 🔍 Búsqueda tolerante de correo
 def buscar_correo(nombre_entrada):
@@ -16,14 +16,19 @@ def buscar_correo(nombre_entrada):
             return correo
     return None
 
-# 📤 Enviar correo al analista y supervisores
-def enviar_correo_personalizado(nombre_analista, asunto, cuerpo):
+# 📤 Enviar correo al analista, supervisor seleccionado y jefes
+def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto, cuerpo):
     correo_analista = buscar_correo(nombre_analista)
+    correo_supervisor = CORREOS_INDIVIDUALES_SUPERVISORES.get(supervisor_seleccionado)
+
     if not correo_analista:
         st.warning(f"⚠️ No se encontró el correo del analista: {nombre_analista}")
         return
+    if not correo_supervisor:
+        st.warning(f"⚠️ No se encontró el correo del supervisor: {supervisor_seleccionado}")
+        return
 
-    destinatarios = [correo_analista] + CORREOS_SUPERVISORES
+    destinatarios = [correo_analista, correo_supervisor] + CORREOS_SUPERVISORES
 
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
@@ -36,12 +41,12 @@ def enviar_correo_personalizado(nombre_analista, asunto, cuerpo):
             server.starttls()
             server.login(REMITENTE, PASSWORD)
             server.sendmail(REMITENTE, destinatarios, msg.as_string())
-        st.success("📧 Correo enviado al analista y supervisores.")
+        st.success("📧 Correo enviado al analista, supervisor y jefes.")
     except Exception as e:
         st.error(f"❌ Error al enviar el correo: {e}")
 
 # 🧠 Validación principal
-def validar_registro(nombre, novedad):
+def validar_registro(nombre, supervisor, novedad):
     hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
     hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
 
@@ -64,7 +69,7 @@ def validar_registro(nombre, novedad):
             f"📌 Estado: Llegada tarde\n"
             f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
         )
-        enviar_correo_personalizado(nombre, "Alerta de llegada tarde", mensaje)
+        enviar_correo_personalizado(nombre, supervisor, "Alerta de llegada tarde", mensaje)
         st.warning("📧 Se ha enviado una alerta por tardanza.")
 
     elif novedad:
@@ -78,7 +83,7 @@ def validar_registro(nombre, novedad):
             f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
             f"No se considera tardanza por justificación."
         )
-        enviar_correo_personalizado(nombre, "Novedad registrada", mensaje)
+        enviar_correo_personalizado(nombre, supervisor, "Novedad registrada", mensaje)
         st.warning("📧 Se ha enviado una alerta por novedad.")
 
     else:
@@ -97,6 +102,7 @@ def main():
         return
 
     nombre = st.selectbox("Selecciona tu nombre", nombres)
+    supervisor = st.selectbox("Selecciona tu supervisor", list(CORREOS_INDIVIDUALES_SUPERVISORES.keys()))
 
     # Mostrar hora actual
     hora_actual = datetime.now(ZoneInfo("America/Bogota")).time()
@@ -124,7 +130,7 @@ def main():
     novedad_final = None if novedad == "Sin novedad" else novedad
 
     if st.button("Registrar entrada"):
-        validar_registro(nombre.strip(), novedad_final)
+        validar_registro(nombre.strip(), supervisor, novedad_final)
 
 if __name__ == "__main__":
     main()
