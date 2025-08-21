@@ -5,7 +5,7 @@ import smtplib
 from email.mime.text import MIMEText
 
 from data import cargar_turnos, obtener_horario_asignado, guardar_registro, obtener_nombres_analistas
-from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREOS_SUPERVISORES
+from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREOS_JEFES
 from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_SUPERVISORES_INDIVIDUALES
 
 # 🔍 Búsqueda tolerante de correo
@@ -28,7 +28,7 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
         st.warning(f"⚠️ No se encontró el correo del supervisor: {supervisor_seleccionado}")
         return
 
-    destinatarios = [correo_analista, correo_supervisor] + CORREOS_SUPERVISORES
+    destinatarios = [correo_analista, correo_supervisor] + CORREOS_JEFES
 
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
@@ -59,28 +59,25 @@ def validar_registro(nombre, supervisor, novedad):
     h2 = datetime.combine(hoy, hora_entrada_real)
     minutos_diferencia = (h2 - h1).total_seconds() / 60
 
-    if minutos_diferencia > 5 and not novedad:
+    if minutos_diferencia > 5 and novedad in [None, "", "None"]:
         estado = "Tarde"
         mensaje = (
-    f"🧑 Analista: {nombre}\n"
-    f"👤 Supervisor a cargo: {supervisor}\n"
-    f"📅 Fecha: {hoy}\n"
-    f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
-    f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
-    f"📌 Estado: Con novedad\n"
-    f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
-    f"No se considera tardanza por justificación."
-)
-
-
+            f"🧑 Analista: {nombre}\n"
+            f"👤 Supervisor a cargo: {supervisor}\n"
+            f"📅 Fecha: {hoy}\n"
+            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
+            f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
+            f"📌 Estado: Llegada tarde\n"
+            f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
+        )
         enviar_correo_personalizado(nombre, supervisor, "Alerta de llegada tarde", mensaje)
         st.warning("📧 Se ha enviado una alerta por tardanza.")
 
-    
     elif novedad not in [None, "", "None"]:
         estado = "Con novedad"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
+            f"👤 Supervisor a cargo: {supervisor}\n"
             f"📅 Fecha: {hoy}\n"
             f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"

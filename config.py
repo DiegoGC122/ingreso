@@ -12,7 +12,7 @@ RUTA_REGISTROS = "registros.xlsx"
 
 # 📧 Correo del supervisor (puedes extender esto por analista en el futuro)
 # 📧 Correos de supervisores
-CORREOS_SUPERVISORES = [
+CORREOS_JEFES = [
     "jhonsebastian.chingate.contractor@bbva.com",
     "mariapaula.ramos.rodriguez.contractor@bbva.com",
     "sandraseneth.tibavizco.contractor@bbva.com",
