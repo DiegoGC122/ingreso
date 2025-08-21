@@ -15,10 +15,7 @@ RUTA_REGISTROS = "registros.xlsx"
 CORREOS_JEFES = [
     "jhonsebastian.chingate.contractor@bbva.com",
     "mariapaula.ramos.rodriguez.contractor@bbva.com",
-    "sandraseneth.tibavizco.contractor@bbva.com",
-    "andreacarolina.torres.contractor@bbva.com",
-    "johnhenry.marin.contractor@bbva.com",
-    "joseguillermo.lozano.contractor@bbva.com",
+    "sandraseneth.tibavizco.contractor@bbva.com"
 
 ]
 
