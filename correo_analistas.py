@@ -45,7 +45,7 @@ CORREOS_ANALISTAS = {
     "FABER SEBASTIAN FÚQUENE HERNANDEZ": "fabersebastian.fuquene.contractor@bbva.com"
 }
 
-CORREOS_INDIVIDUALES_SUPERVISORES={
+CORREOS_SUPERVISORES_INDIVIDUALES={
 
     "ANDREA CAROLINA TORRES NUÑEZ":"andreacarolina.torres.contractor@bbva.com",
     "JOSE GUILLERMO LOZANO GUERRA": "joseguillermo.lozano.contractor@bbva.com",
