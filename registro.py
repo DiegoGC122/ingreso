@@ -76,7 +76,8 @@ def validar_registro(nombre, supervisor, novedad):
         enviar_correo_personalizado(nombre, supervisor, "Alerta de llegada tarde", mensaje)
         st.warning("📧 Se ha enviado una alerta por tardanza.")
 
-    elif novedad:
+    
+    elif novedad not in [None, "", "None"]:
         estado = "Con novedad"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
