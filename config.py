@@ -16,6 +16,7 @@ CORREOS_JEFES = [
     "jhonsebastian.chingate.contractor@bbva.com",
     "mariapaula.ramos.rodriguez.contractor@bbva.com",
     "sandraseneth.tibavizco.contractor@bbva.com"
+    "diegofernando.gonzalez.contractor@bbva.com"
 
 ]
 
