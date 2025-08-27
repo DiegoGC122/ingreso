@@ -4,8 +4,11 @@ from zoneinfo import ZoneInfo
 import smtplib
 from email.mime.text import MIMEText
 
-from data import cargar_turnos, obtener_horario_asignado, guardar_registro, obtener_nombres_analistas
-from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREOS_JEFES
+from data import cargar_turnos, obtener_horario_asignado, obtener_nombres_analistas
+from config import (
+    REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO,
+    CORREOS_JEFES, conectar_mysql
+)
 from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_SUPERVISORES_INDIVIDUALES
 
 # 🔍 Buscar correo por nombre
@@ -112,7 +115,7 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado, hora_salid
         estado = "OK"
         st.success("✅ Registro guardado correctamente. No se requiere alerta.")
 
-    guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad, estado)
+    guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad, estado, supervisor)
 
 # 🕒 Validar salida anticipada o desincronizada
 def validar_salida_anticipada(hora_salida_real, hora_salida_asignada, novedad):
@@ -127,4 +130,39 @@ def validar_salida_anticipada(hora_salida_real, hora_salida_asignada, novedad):
         )
         return False, alerta
     return True, None
-    
+
+# 🗂️ Insertar login exitoso en base de datos
+def insertar_login(nombre, correo):
+    conn = conectar_mysql()
+    cursor = conn.cursor()
+    ahora = datetime.now(ZoneInfo("America/Bogota"))
+    query = """
+        INSERT INTO log_accesos (nombre, correo, fecha, hora, evento)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+    cursor.execute(query, (nombre, correo, ahora.date(), ahora.time(), "Login exitoso"))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+# 🗂️ Guardar registro de entrada en base de datos
+def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervisor):
+    conn = conectar_mysql()
+    cursor = conn.cursor()
+    hoy = datetime.now(ZoneInfo("America/Bogota")).date()
+    query = """
+        INSERT INTO log_registros (nombre, supervisor, fecha, hora_entrada, hora_salida, novedad, estado)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """
+    cursor.execute(query, (
+        nombre,
+        supervisor,
+        hoy,
+        hora_entrada,
+        hora_salida if hora_salida else None,
+        novedad if novedad else "Sin novedad",
+        estado
+    ))
+    conn.commit()
+    cursor.close()
+    conn.close()

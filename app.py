@@ -1,12 +1,14 @@
 import streamlit as st
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
 from login import validar_login
 from registro import (
     validar_registro,
     obtener_nombres_analistas,
     obtener_horario_asignado,
-    validar_salida_anticipada
+    validar_salida_anticipada,
+    insertar_login
 )
 from correo_analistas import CORREOS_SUPERVISORES_INDIVIDUALES, normalizar
 from verificacion import enviar_codigo_desde_gmail, generar_codigo_temporal
@@ -23,6 +25,7 @@ def mostrar_login():
 
         nombre = validar_login(correo, password)
         if nombre:
+            insertar_login(nombre, correo)  # ✅ Registro de login exitoso
             codigo = generar_codigo_temporal()
             enviado = enviar_codigo_desde_gmail(correo, codigo)
             if enviado:
