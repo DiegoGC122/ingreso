@@ -8,7 +8,7 @@ from data import cargar_turnos, obtener_horario_asignado, guardar_registro, obte
 from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO, CORREOS_JEFES
 from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_SUPERVISORES_INDIVIDUALES
 
-# 🔍 Búsqueda tolerante de correo
+# 🔍 Buscar correo por nombre
 def buscar_correo(nombre_entrada):
     nombre_normalizado = normalizar(nombre_entrada)
     for nombre_diccionario, correo in CORREOS_ANALISTAS.items():
@@ -16,7 +16,12 @@ def buscar_correo(nombre_entrada):
             return correo
     return None
 
-# 📤 Enviar correo al analista, supervisor seleccionado y jefes
+# 🛡️ Registrar intento sospechoso
+def registrar_intento_sospechoso(nombre, correo_autenticado):
+    with open("intentos_sospechosos.log", "a") as f:
+        f.write(f"{datetime.now()} | Nombre seleccionado: {nombre} | Correo autenticado: {correo_autenticado}\n")
+
+# 📧 Enviar correo de alerta
 def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto, cuerpo):
     correo_analista = buscar_correo(nombre_analista)
     correo_supervisor = CORREOS_SUPERVISORES_INDIVIDUALES.get(supervisor_seleccionado)
@@ -45,8 +50,19 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
     except Exception as e:
         st.error(f"❌ Error al enviar el correo: {e}")
 
-# 🧠 Validación principal
-def validar_registro(nombre, supervisor, novedad):
+# ✅ Validar y registrar entrada
+def validar_registro(nombre, supervisor, novedad, correo_autenticado, hora_salida_real):
+    correo_esperado = buscar_correo(nombre)
+
+    if normalizar(correo_autenticado) != normalizar(correo_esperado):
+        registrar_intento_sospechoso(nombre, correo_autenticado)
+        st.error("❌ El correo autenticado no coincide con el nombre seleccionado.")
+        return
+
+    if not correo_autenticado.endswith("@bbva.com") and not correo_autenticado.endswith("@bbva.com.co"):
+        st.error("❌ Solo se permite el correo institucional del banco.")
+        return
+
     hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
     hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
 
@@ -59,6 +75,8 @@ def validar_registro(nombre, supervisor, novedad):
     h2 = datetime.combine(hoy, hora_entrada_real)
     minutos_diferencia = (h2 - h1).total_seconds() / 60
 
+    salida_real_str = hora_salida_real.strftime('%H:%M') if hora_salida_real else "No registrada"
+
     if minutos_diferencia > 5 and novedad in [None, "", "None"]:
         estado = "Tarde"
         mensaje = (
@@ -67,6 +85,7 @@ def validar_registro(nombre, supervisor, novedad):
             f"📅 Fecha: {hoy}\n"
             f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
+            f"🕕 Hora de salida real: {salida_real_str}\n"
             f"📌 Estado: Llegada tarde\n"
             f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
         )
@@ -81,6 +100,7 @@ def validar_registro(nombre, supervisor, novedad):
             f"📅 Fecha: {hoy}\n"
             f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
+            f"🕕 Hora de salida real: {salida_real_str}\n"
             f"📌 Estado: Con novedad\n"
             f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
             f"No se considera tardanza por justificación."
@@ -92,47 +112,19 @@ def validar_registro(nombre, supervisor, novedad):
         estado = "OK"
         st.success("✅ Registro guardado correctamente. No se requiere alerta.")
 
-    guardar_registro(nombre, hora_entrada_real, hora_salida_asignada, novedad, estado)
+    guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad, estado)
 
-# 🖥️ Interfaz Streamlit
-def main():
-    st.title("📋 Registro de entrada de analistas")
-
-    nombres = obtener_nombres_analistas()
-    if not nombres:
-        st.error("❌ No se encontraron nombres en el archivo.")
-        return
-
-    nombre = st.selectbox("Selecciona tu nombre", nombres)
-    supervisor = st.selectbox("Selecciona tu supervisor", list(CORREOS_SUPERVISORES_INDIVIDUALES.keys()))
-
-    # Mostrar hora actual
+# 🕒 Validar salida anticipada o desincronizada
+def validar_salida_anticipada(hora_salida_real, hora_salida_asignada, novedad):
     hora_actual = datetime.now(ZoneInfo("America/Bogota")).time()
-    st.markdown("### 🕒 Horarios")
-    st.write(f"**Hora actual (PC - Colombia):** {hora_actual.strftime('%H:%M')}")
+    diferencia = abs((datetime.combine(datetime.today(), hora_actual) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
 
-    # Mostrar horario asignado automáticamente
-    bloque_horario = st.empty()
-    hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
-
-    if hora_entrada_asignada and hora_salida_asignada:
-        bloque_horario.success(f"🕓 Tu horario hoy es: **{hora_entrada_asignada.strftime('%H:%M')} - {hora_salida_asignada.strftime('%H:%M')}**")
-    else:
-        bloque_horario.warning("⚠️ No tienes turno asignado hoy.")
-        return
-
-    # Desplegable de novedades
-    opciones_novedad = [
-        "Sin novedad",
-        "Cita médica",
-        "Error con el usuario",
-        "Error con el ingreso al edificio"
-    ]
-    novedad = st.selectbox("¿Tienes alguna novedad?", opciones_novedad)
-    novedad_final = None if novedad == "Sin novedad" else novedad
-
-    if st.button("Registrar entrada"):
-        validar_registro(nombre.strip(), supervisor, novedad_final)
-
-if __name__ == "__main__":
-    main()
+    if diferencia >= 1 and not novedad:
+        alerta = (
+            f"❌ La hora de salida registrada ({hora_salida_real.strftime('%H:%M')}) "
+            f"no coincide con la hora actual del sistema ({hora_actual.strftime('%H:%M')}). "
+            f"Diferencia de {int(diferencia)} minutos. Debes registrar una novedad para justificar."
+        )
+        return False, alerta
+    return True, None
+    
