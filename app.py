@@ -13,6 +13,7 @@ from registro import (
 from correo_analistas import CORREOS_SUPERVISORES_INDIVIDUALES, normalizar
 from verificacion import enviar_codigo_desde_gmail, generar_codigo_temporal
 
+# 🔐 Pantalla de login
 def mostrar_login():
     st.title("🔐 Iniciar sesión")
     correo = st.text_input("Correo institucional").strip().lower()
@@ -42,6 +43,7 @@ def mostrar_login():
         else:
             st.error("❌ Credenciales incorrectas.")
 
+# 📧 Verificación por código
 def mostrar_verificacion():
     st.title("🔐 Verificación por correo")
     st.info("Hemos enviado un código a tu correo institucional. Ingresa el código para continuar.")
@@ -81,6 +83,7 @@ def mostrar_verificacion():
             else:
                 st.error("❌ No se pudo reenviar el código. Intenta más tarde.")
 
+# 📋 Registro de entrada
 def mostrar_registro():
     st.title("📋 Registro de entrada de analistas")
 
@@ -139,6 +142,7 @@ def mostrar_registro():
         )
         st.success("✅ Registro exitoso.")
 
+# 🔓 Cierre de sesión
 def mostrar_logout():
     st.sidebar.markdown("### 👤 Sesión activa")
     st.sidebar.info(f"{st.session_state['nombre_autenticado']}")
@@ -147,6 +151,7 @@ def mostrar_logout():
             st.session_state.pop(key, None)
         st.rerun()
 
+# 🚀 Punto de entrada
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
     if st.session_state.get("fase_verificacion") == "codigo":

@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 import mysql.connector
+import sqlite3
 
 # 📦 Cargar variables desde .env
 load_dotenv()
@@ -24,7 +25,7 @@ CORREOS_JEFES = [
     "diegofernando.gonzalez.contractor@bbva.com"
 ]
 
-# 🔌 Conexión a MySQL
+# 🔌 Conexión a MySQL (si decides volver a usarlo)
 def conectar_mysql():
     return mysql.connector.connect(
         host=os.getenv("DB_HOST"),
@@ -32,3 +33,7 @@ def conectar_mysql():
         password=os.getenv("DB_PASS"),
         database=os.getenv("DB_NAME")
     )
+
+# 🔌 Conexión a SQLite (modo local o en Streamlit Cloud)
+def conectar_sqlite():
+    return sqlite3.connect("registro.db", check_same_thread=False)
