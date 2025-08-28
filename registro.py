@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 from data import cargar_turnos, obtener_horario_asignado, obtener_nombres_analistas
 from config import (
     REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO,
-    CORREOS_JEFES, conectar_mysql
+    CORREOS_JEFES, conectar_sqlite
 )
 from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_SUPERVISORES_INDIVIDUALES
 
@@ -131,28 +131,28 @@ def validar_salida_anticipada(hora_salida_real, hora_salida_asignada, novedad):
         return False, alerta
     return True, None
 
-# 🗂️ Insertar login exitoso en base de datos
+# 🗂️ Insertar login exitoso en base de datos SQLite
 def insertar_login(nombre, correo):
-    conn = conectar_mysql()
+    conn = conectar_sqlite()
     cursor = conn.cursor()
     ahora = datetime.now(ZoneInfo("America/Bogota"))
     query = """
         INSERT INTO log_accesos (nombre, correo, fecha, hora, evento)
-        VALUES (%s, %s, %s, %s, %s)
+        VALUES (?, ?, ?, ?, ?)
     """
     cursor.execute(query, (nombre, correo, ahora.date(), ahora.time(), "Login exitoso"))
     conn.commit()
     cursor.close()
     conn.close()
 
-# 🗂️ Guardar registro de entrada en base de datos
+# 🗂️ Guardar registro de entrada en base de datos SQLite
 def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervisor):
-    conn = conectar_mysql()
+    conn = conectar_sqlite()
     cursor = conn.cursor()
     hoy = datetime.now(ZoneInfo("America/Bogota")).date()
     query = """
         INSERT INTO log_registros (nombre, supervisor, fecha, hora_entrada, hora_salida, novedad, estado)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     """
     cursor.execute(query, (
         nombre,

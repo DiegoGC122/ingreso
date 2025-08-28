@@ -1,34 +1,14 @@
 import streamlit as st
-import mysql.connector
+import sqlite3
 import bcrypt
-from dotenv import load_dotenv
-import os
+from config import conectar_sqlite
 
-# 📦 Cargar variables de entorno
-load_dotenv()
-
-# 🔌 Conexión a MySQL
-def conectar_mysql():
-    try:
-        return mysql.connector.connect(
-            host=os.getenv("DB_HOST"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASS"),
-            database=os.getenv("DB_NAME")
-        )
-    except mysql.connector.Error as e:
-        st.error(f"❌ Error de conexión a la base de datos: {e}")
-        return None
-
-# 🔐 Validar login
+# 🔐 Validar login con SQLite
 def validar_login(correo, password):
-    conn = conectar_mysql()
-    if not conn:
-        return None
-
+    conn = conectar_sqlite()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT nombre, password FROM usuarios WHERE correo = %s", (correo,))
+        cursor.execute("SELECT nombre, contraseña_hash FROM usuarios WHERE correo = ?", (correo,))
         resultado = cursor.fetchone()
         conn.close()
 
