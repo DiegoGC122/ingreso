@@ -8,14 +8,14 @@ def validar_login(correo, password):
     conn = conectar_sqlite()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT nombre, contraseña_hash FROM usuarios WHERE correo = ?", (correo,))
+        cursor.execute("SELECT nombre, contraseña_hash, rol FROM usuarios WHERE correo = ? AND activo = 1", (correo,))
         resultado = cursor.fetchone()
         conn.close()
 
         if resultado:
-            nombre, password_hash = resultado
-            if bcrypt.checkpw(password.encode(), password_hash.encode()):
-                return nombre
+            nombre, password_hash, rol = resultado
+            if password_hash and bcrypt.checkpw(password.encode(), password_hash.encode()):
+                return nombre  # Si luego quieres usar el rol, puedes devolver {"nombre": nombre, "rol": rol}
     except Exception as e:
         st.error(f"❌ Error al validar credenciales: {e}")
     return None
@@ -35,6 +35,6 @@ def mostrar_login():
         if nombre:
             st.session_state["usuario_autenticado"] = correo
             st.session_state["nombre_autenticado"] = nombre
-            st.rerun()  # 🔁 Recarga limpia para mostrar el formulario
+            st.rerun()
         else:
             st.error("❌ Credenciales incorrectas. Verifica tu correo y contraseña.")

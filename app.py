@@ -7,8 +7,9 @@ from registro import (
     validar_registro,
     obtener_nombres_analistas,
     obtener_horario_asignado,
-    validar_salida_anticipada,
-    insertar_login
+    insertar_login,
+    registrar_salida,
+    verificar_ingreso_pendiente
 )
 from correo_analistas import CORREOS_SUPERVISORES_INDIVIDUALES, normalizar
 from verificacion import enviar_codigo_desde_gmail, generar_codigo_temporal
@@ -26,7 +27,7 @@ def mostrar_login():
 
         nombre = validar_login(correo, password)
         if nombre:
-            insertar_login(nombre, correo)  # ✅ Registro de login exitoso
+            insertar_login(nombre, correo)
             codigo = generar_codigo_temporal()
             enviado = enviar_codigo_desde_gmail(correo, codigo)
             if enviado:
@@ -43,7 +44,6 @@ def mostrar_login():
         else:
             st.error("❌ Credenciales incorrectas.")
 
-# 📧 Verificación por código
 # 📧 Verificación por código
 def mostrar_verificacion():
     st.title("🔐 Verificación por correo")
@@ -85,9 +85,7 @@ def mostrar_verificacion():
             else:
                 st.error("❌ No se pudo reenviar el código. Intenta más tarde.")
 
-
-# 📋 Registro de entrada
-# 📋 Registro de entrada
+# 📋 Registro de ingreso
 def mostrar_registro():
     st.title("📋 Registro de entrada de analistas")
 
@@ -121,37 +119,61 @@ def mostrar_registro():
     ])
     novedad_final = None if novedad == "Sin novedad" else novedad
 
-    hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="")
-    hora_salida_real = None
-    if hora_salida_real_str.strip():
-        try:
-            hora_salida_real = datetime.strptime(hora_salida_real_str.strip(), "%H:%M").time()
-        except ValueError:
-            st.error("❌ Formato incorrecto (HH:MM).")
-            return
-
-        # Validar que la hora ingresada coincida con la hora del PC y la hora asignada
-        hora_pc = datetime.now(ZoneInfo("America/Bogota")).time()
-        diferencia_pc = abs((datetime.combine(datetime.today(), hora_pc) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
-        diferencia_asignada = abs((datetime.combine(datetime.today(), hora_salida_asignada) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
-
-        if diferencia_pc > 1 or diferencia_asignada > 1:
-            st.error(
-                f"❌ La hora de salida ingresada ({hora_salida_real.strftime('%H:%M')}) no coincide con la hora actual del sistema ({hora_pc.strftime('%H:%M')}) "
-                f"ni con la hora de salida asignada ({hora_salida_asignada.strftime('%H:%M')})."
-            )
-            return
-
     if st.button("Registrar entrada"):
         validar_registro(
             nombre_seleccionado.strip(),
             supervisor,
             novedad_final,
-            correo_autenticado.strip(),
-            hora_salida_real
+            correo_autenticado.strip()
         )
         st.success("✅ Registro exitoso.")
+        st.session_state["redirigir_a_salida"] = True
+        st.rerun()
 
+# 🚪 Registro de salida
+def mostrar_salida():
+    st.title("🚪 Registro de salida")
+
+    nombre_autenticado = st.session_state.get("nombre_autenticado")
+    correo_autenticado = st.session_state.get("usuario_autenticado")
+    st.markdown(f"👤 Sesión activa: `{nombre_autenticado}` - `{correo_autenticado}`")
+
+    # 🕓 Mostrar horario asignado
+    _, hora_salida_asignada = obtener_horario_asignado(nombre_autenticado)
+    if not hora_salida_asignada:
+        st.error("❌ No tienes turno asignado hoy.")
+        return
+
+    st.success(f"🕓 Tu hora de salida asignada es: `{hora_salida_asignada.strftime('%H:%M')}`")
+    hora_actual = datetime.now(ZoneInfo("America/Bogota")).time()
+    st.markdown(f"**Hora actual (PC - Colombia):** `{hora_actual.strftime('%H:%M')}`")
+
+    # 🕕 Ingreso manual de hora de salida
+    hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="")
+    if st.button("Registrar salida"):
+        try:
+            hora_salida_real = datetime.strptime(hora_salida_real_str.strip(), "%H:%M").time()
+        except ValueError:
+            st.error("❌ Formato incorrecto. Usa HH:MM.")
+            return
+
+        # Validaciones
+        diferencia_pc = abs((datetime.combine(datetime.today(), hora_actual) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
+        diferencia_asignada = abs((datetime.combine(datetime.today(), hora_salida_asignada) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
+
+        if diferencia_pc > 1 or diferencia_asignada > 1:
+            st.error(
+                f"❌ La hora ingresada ({hora_salida_real.strftime('%H:%M')}) no coincide con la hora actual del sistema ({hora_actual.strftime('%H:%M')}) "
+                f"ni con la hora de salida asignada ({hora_salida_asignada.strftime('%H:%M')})."
+            )
+            return
+
+        # ✅ Si pasa validación, registrar salida
+        exito = registrar_salida(nombre_autenticado)
+        if exito:
+            st.success("✅ Salida registrada correctamente.")
+        else:
+            st.warning("⚠️ No se encontró un ingreso pendiente para hoy.")
 
 # 🔓 Cierre de sesión
 def mostrar_logout():
@@ -165,11 +187,25 @@ def mostrar_logout():
 # 🚀 Punto de entrada
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
+
     if st.session_state.get("fase_verificacion") == "codigo":
         mostrar_verificacion()
     elif "usuario_autenticado" in st.session_state:
         mostrar_logout()
-        mostrar_registro()
+
+        if st.session_state.get("redirigir_a_salida"):
+            st.session_state.pop("redirigir_a_salida")
+            mostrar_salida()
+            return
+
+        if verificar_ingreso_pendiente(st.session_state["nombre_autenticado"]):
+            mostrar_salida()
+        else:
+            tab1, tab2 = st.tabs(["📋 Registro de ingreso", "🚪 Registro de salida"])
+            with tab1:
+                mostrar_registro()
+            with tab2:
+                mostrar_salida()
     else:
         mostrar_login()
 
