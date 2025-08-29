@@ -2,5 +2,4 @@ streamlit
 bcrypt
 pandas
 openpyxl
-python-dotenv
-backports.zoneinfo  # solo si usas Python < 3.9
+python-dotenv# solo si usas Python < 3.9
