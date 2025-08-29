@@ -1,6 +1,6 @@
 streamlit
+bcrypt
 pandas
 openpyxl
-mysql-connector-python
-bcrypt
 python-dotenv
+backports.zoneinfo  # solo si usas Python < 3.9
