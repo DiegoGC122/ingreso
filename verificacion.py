@@ -1,5 +1,3 @@
-# verificacion.py
-
 import random
 import smtplib
 from email.mime.text import MIMEText
@@ -10,8 +8,7 @@ def generar_codigo_temporal():
 
 def enviar_codigo_desde_gmail(correo_destino, codigo):
     asunto = "🔐 Código de verificación BBVA"
-    cuerpo = f"""
-Hola,
+    cuerpo = f"""Hola,
 
 Tu código de acceso es: {codigo}
 
@@ -27,10 +24,13 @@ Sistema de Registro BBVA
     msg['To'] = correo_destino
 
     try:
-        with smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO) as server:
-            server.starttls()
-            server.login(REMITENTE, PASSWORD)
-            server.sendmail(REMITENTE, [correo_destino], msg.as_string())
+        server = smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO)
+        server.ehlo()  # ✅ Identificación explícita
+        server.starttls()  # 🔐 Encriptar conexión
+        server.ehlo()  # ✅ Reidentificación tras TLS
+        server.login(REMITENTE, PASSWORD)
+        server.sendmail(REMITENTE, [correo_destino], msg.as_string())
+        server.quit()
         return True
     except Exception as e:
         import traceback
