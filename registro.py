@@ -136,14 +136,18 @@ def insertar_login(nombre, correo):
     conn = conectar_sqlite()
     cursor = conn.cursor()
     ahora = datetime.now(ZoneInfo("America/Bogota"))
+    fecha_str = ahora.date().isoformat()
+    hora_str = ahora.time().strftime("%H:%M:%S")
+
     query = """
         INSERT INTO log_accesos (nombre, correo, fecha, hora, evento)
         VALUES (?, ?, ?, ?, ?)
     """
-    cursor.execute(query, (nombre, correo, ahora.date(), ahora.time(), "Login exitoso"))
+    cursor.execute(query, (nombre, correo, fecha_str, hora_str, "Login exitoso"))
     conn.commit()
     cursor.close()
     conn.close()
+
 
 # 🗂️ Guardar registro de entrada en base de datos SQLite
 def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervisor):
