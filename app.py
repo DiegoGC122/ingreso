@@ -183,31 +183,37 @@ def mostrar_logout():
         for key in ["usuario_autenticado", "nombre_autenticado"]:
             st.session_state.pop(key, None)
         st.rerun()
-
-# 🚀 Punto de entrada
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
 
+    # 🔐 Verificación por código
     if st.session_state.get("fase_verificacion") == "codigo":
         mostrar_verificacion()
-    elif "usuario_autenticado" in st.session_state:
+        return
+
+    # 👤 Usuario autenticado
+    if "usuario_autenticado" in st.session_state:
         mostrar_logout()
 
+        # 🔁 Redirección automática si ya registró ingreso pero no salida
         if st.session_state.get("redirigir_a_salida"):
             st.session_state.pop("redirigir_a_salida")
             mostrar_salida()
             return
 
+        # ⚠️ Mostrar solo salida si ya ingresó
         if verificar_ingreso_pendiente(st.session_state["nombre_autenticado"]):
             mostrar_salida()
-        else:
-            tab1, tab2 = st.tabs(["📋 Registro de ingreso", "🚪 Registro de salida"])
-            with tab1:
-                mostrar_registro()
-            with tab2:
-                mostrar_salida()
-    else:
-        mostrar_login()
+            return
 
-if __name__ == "__main__":
-    main()
+        # 🧭 Mostrar ambas pestañas si no ha ingresado
+        tab1, tab2 = st.tabs(["📋 Registro de ingreso", "🚪 Registro de salida"])
+        with tab1:
+            mostrar_registro()
+        with tab2:
+            mostrar_salida()
+        return
+
+    # 🔐 Mostrar login si no hay sesión activa
+    mostrar_login()
+
