@@ -6,11 +6,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 📤 Configuración de correo
-REMITENTE = os.getenv("REMITENTE_EMAIL")  # ej: diegofgonzalez22@gmail.com
-PASSWORD = os.getenv("SMTP_PASS")         # contraseña de aplicación
+SMTP_USER = os.getenv("SMTP_USER")  # ej: diegofgonzalez22@gmail.com
+SMTP_PASS = os.getenv("SMTP_PASS")  # contraseña de aplicación
 SMTP_SERVIDOR = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PUERTO = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER", REMITENTE)  # por si usas SMTP_USER en login
+REMITENTE_EMAIL = os.getenv("REMITENTE_EMAIL", SMTP_USER)  # usado como 'From'
+
+# Alias para compatibilidad con funciones existentes
+REMITENTE = REMITENTE_EMAIL
+PASSWORD = SMTP_PASS
 
 # 📁 Rutas de archivos
 RUTA_TURNOS = "turnos.xlsx"

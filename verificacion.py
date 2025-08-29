@@ -1,7 +1,7 @@
 import random
 import smtplib
 from email.mime.text import MIMEText
-from config import REMITENTE, PASSWORD, SMTP_SERVIDOR, SMTP_PUERTO
+from config import SMTP_USER, SMTP_PASS, SMTP_SERVIDOR, SMTP_PUERTO, REMITENTE_EMAIL
 
 def generar_codigo_temporal():
     return str(random.randint(100000, 999999))
@@ -20,16 +20,16 @@ Sistema de Registro BBVA
 
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
-    msg['From'] = REMITENTE
+    msg['From'] = REMITENTE_EMAIL
     msg['To'] = correo_destino
 
     try:
         server = smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO)
-        server.ehlo()  # ✅ Identificación explícita
-        server.starttls()  # 🔐 Encriptar conexión
-        server.ehlo()  # ✅ Reidentificación tras TLS
-        server.login(REMITENTE, PASSWORD)
-        server.sendmail(REMITENTE, [correo_destino], msg.as_string())
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.sendmail(REMITENTE_EMAIL, [correo_destino], msg.as_string())
         server.quit()
         return True
     except Exception as e:
