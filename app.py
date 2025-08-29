@@ -120,15 +120,23 @@ def mostrar_registro():
     novedad_final = None if novedad == "Sin novedad" else novedad
 
     if st.button("Registrar entrada"):
+        # Evaluar puntualidad
+        if hora_actual > hora_entrada_asignada:
+            mensaje_puntualidad = "✉️ Se ha enviado correo por llegada tarde."
+        else:
+            mensaje_puntualidad = "🕓 Llegada puntual o anticipada."
+
+        # Guardar registro
         validar_registro(
             nombre_seleccionado.strip(),
             supervisor,
             novedad_final,
             correo_autenticado.strip()
         )
+
         st.success("✅ Registro exitoso.")
-        st.session_state["redirigir_a_salida"] = True
-        st.rerun()
+        st.info(mensaje_puntualidad)
+
 
 # 🚪 Registro de salida
 def mostrar_salida():
@@ -138,7 +146,6 @@ def mostrar_salida():
     correo_autenticado = st.session_state.get("usuario_autenticado")
     st.markdown(f"👤 Sesión activa: `{nombre_autenticado}` - `{correo_autenticado}`")
 
-    # 🕓 Mostrar horario asignado
     _, hora_salida_asignada = obtener_horario_asignado(nombre_autenticado)
     if not hora_salida_asignada:
         st.error("❌ No tienes turno asignado hoy.")
@@ -148,7 +155,6 @@ def mostrar_salida():
     hora_actual = datetime.now(ZoneInfo("America/Bogota")).time()
     st.markdown(f"**Hora actual (PC - Colombia):** `{hora_actual.strftime('%H:%M')}`")
 
-    # 🕕 Ingreso manual de hora de salida
     hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="")
     if st.button("Registrar salida"):
         try:
@@ -157,7 +163,6 @@ def mostrar_salida():
             st.error("❌ Formato incorrecto. Usa HH:MM.")
             return
 
-        # Validaciones
         diferencia_pc = abs((datetime.combine(datetime.today(), hora_actual) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
         diferencia_asignada = abs((datetime.combine(datetime.today(), hora_salida_asignada) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
 
@@ -168,7 +173,6 @@ def mostrar_salida():
             )
             return
 
-        # ✅ Si pasa validación, registrar salida
         exito = registrar_salida(nombre_autenticado)
         if exito:
             st.success("✅ Salida registrada correctamente.")
@@ -178,39 +182,33 @@ def mostrar_salida():
 # 🔓 Cierre de sesión
 def mostrar_logout():
     st.sidebar.markdown("### 👤 Sesión activa")
-    st.sidebar.info(f"{st.session_state['nombre_autenticado']}")
+    st.sidebar.info(f"{st.session_state.get('nombre_autenticado', 'Desconocido')}")
     if st.sidebar.button("🔓 Cerrar sesión"):
-        for key in ["usuario_autenticado", "nombre_autenticado"]:
-            st.session_state.pop(key, None)
+        for key in list(st.session_state.keys()):
+            if key.startswith("usuario_") or key.startswith("nombre_") or key.startswith("fase_") or key.startswith("codigo_") or key == "redirigir_a_salida":
+                st.session_state.pop(key, None)
         st.rerun()
+
 # 🚀 Punto de entrada
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
 
-    # 🧭 Diagnóstico visual (puedes quitarlo luego)
-    st.write("📊 Estado de sesión:", dict(st.session_state))
-
-    # 🔐 Verificación por código
     if st.session_state.get("fase_verificacion") == "codigo":
         mostrar_verificacion()
         return
 
-    # 👤 Usuario autenticado
-    if "usuario_autenticado" in st.session_state:
+    if st.session_state.get("usuario_autenticado") and st.session_state.get("nombre_autenticado"):
         mostrar_logout()
 
-        # 🔁 Redirección automática si ya registró ingreso pero no salida
         if st.session_state.get("redirigir_a_salida"):
             st.session_state.pop("redirigir_a_salida")
             mostrar_salida()
             return
 
-        # ⚠️ Mostrar solo salida si ya ingresó
         if verificar_ingreso_pendiente(st.session_state["nombre_autenticado"]):
             mostrar_salida()
             return
 
-        # 🧭 Mostrar ambas pestañas si no ha ingresado
         tab1, tab2 = st.tabs(["📋 Registro de ingreso", "🚪 Registro de salida"])
         with tab1:
             mostrar_registro()
@@ -218,6 +216,8 @@ def main():
             mostrar_salida()
         return
 
-    # 🔐 Mostrar login si no hay sesión activa
     mostrar_login()
-    return
+
+if __name__ == "__main__":
+    main()
+    

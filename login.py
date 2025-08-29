@@ -23,12 +23,12 @@ def validar_login(correo, password):
 # 🖥️ Interfaz de login (si se usa como módulo independiente)
 def mostrar_login():
     st.title("🔐 Iniciar sesión")
-    correo = st.text_input("Correo institucional").strip().lower()
+    correo = st.text_input("Correo BBVA").strip().lower()
     password = st.text_input("Contraseña", type="password")
 
     if st.button("Ingresar"):
         if not correo.endswith("@bbva.com") and not correo.endswith("@bbva.com.co"):
-            st.error("❌ Solo se permite el correo institucional del banco.")
+            st.error("❌ Solo se permite el correo BBVA.")
             return
 
         nombre = validar_login(correo, password)

@@ -58,4 +58,7 @@ CORREOS_SUPERVISORES_INDIVIDUALES={
 
 # ✅ Función para normalizar nombres
 def normalizar(texto):
-    return unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode().lower().strip()
+    if not isinstance(texto, str) or texto is None:
+        return ""
+    texto = unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode("utf-8")
+    return texto.strip().lower()
