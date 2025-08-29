@@ -33,5 +33,7 @@ Sistema de Registro BBVA
             server.sendmail(REMITENTE, [correo_destino], msg.as_string())
         return True
     except Exception as e:
-        print("❌ Error al enviar el código:", e)
+        import traceback
+        print("❌ Error al enviar el código:", repr(e))
+        traceback.print_exc()
         return False

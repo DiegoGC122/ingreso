@@ -1,5 +1,5 @@
 import bcrypt
-from config import conectar_mysql
+from config import conectar_sqlite
 from correo_analistas import CORREOS_ANALISTAS
 
 # 🧠 Equivalencias de nombres que no coinciden con el diccionario
@@ -66,14 +66,13 @@ CONTRASEÑAS = {
 }
 
 def insertar_usuarios():
-    conn = conectar_mysql()
+    conn = conectar_sqlite()
     cursor = conn.cursor()
 
     for nombre, password in CONTRASEÑAS.items():
         nombre_corregido = EQUIVALENCIAS.get(nombre, nombre)
         correo = CORREOS_ANALISTAS.get(nombre_corregido)
 
-        # Si no está en el diccionario, buscar en los correos manuales
         if not correo:
             correo = CORREOS_MANUALES.get(nombre)
 
@@ -85,8 +84,8 @@ def insertar_usuarios():
 
         try:
             cursor.execute(
-                "INSERT INTO usuarios (nombre, correo, password) VALUES (%s, %s, %s)",
-                (nombre, correo, hashed)
+                "INSERT INTO usuarios (nombre, correo, contraseña_hash, rol, activo) VALUES (?, ?, ?, ?, ?)",
+                (nombre, correo, hashed, "analista", 1)
             )
             conn.commit()
             print(f"✅ Usuario insertado: {nombre}")
