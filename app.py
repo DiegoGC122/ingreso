@@ -44,6 +44,7 @@ def mostrar_login():
             st.error("❌ Credenciales incorrectas.")
 
 # 📧 Verificación por código
+# 📧 Verificación por código
 def mostrar_verificacion():
     st.title("🔐 Verificación por correo")
     st.info("Hemos enviado un código a tu correo institucional. Ingresa el código para continuar.")
@@ -57,7 +58,8 @@ def mostrar_verificacion():
     col1, col2 = st.columns([2, 1])
     with col1:
         if st.button("Verificar"):
-            if codigo_ingresado == st.session_state.get("codigo_temporal"):
+            codigo_guardado = st.session_state.get("codigo_temporal", "").strip()
+            if codigo_ingresado.strip() == codigo_guardado:
                 st.session_state.update({
                     "usuario_autenticado": st.session_state["correo_pendiente_verificacion"],
                     "nombre_autenticado": st.session_state["nombre_pendiente_verificacion"]
@@ -82,6 +84,7 @@ def mostrar_verificacion():
                 st.success("📤 Se ha enviado un nuevo código a tu correo.")
             else:
                 st.error("❌ No se pudo reenviar el código. Intenta más tarde.")
+
 
 # 📋 Registro de entrada
 def mostrar_registro():
