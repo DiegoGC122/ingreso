@@ -1,5 +1,6 @@
 import random
 import smtplib
+import socket
 from email.mime.text import MIMEText
 from config import SMTP_USER, SMTP_PASS, SMTP_SERVIDOR, SMTP_PUERTO, REMITENTE_EMAIL
 
@@ -24,14 +25,25 @@ Sistema de Registro BBVA
     msg['To'] = correo_destino
 
     try:
+        # 🔍 Diagnóstico de conexión
+        print("📤 Conectando a servidor SMTP:", SMTP_SERVIDOR, SMTP_PUERTO)
+        print("🔍 Resolviendo IP:", socket.gethostbyname(SMTP_SERVIDOR))
+
         server = smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO)
-        server.ehlo()
+        banner = server.ehlo()[1].decode()
+        print("📡 Banner del servidor SMTP:", banner)
+
         server.starttls()
         server.ehlo()
+
+        print("🔐 Autenticando con:", SMTP_USER)
         server.login(SMTP_USER, SMTP_PASS)
+
         server.sendmail(REMITENTE_EMAIL, [correo_destino], msg.as_string())
         server.quit()
+        print("✅ Código enviado correctamente a:", correo_destino)
         return True
+
     except Exception as e:
         import traceback
         print("❌ Error al enviar el código:", repr(e))
