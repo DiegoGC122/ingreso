@@ -87,6 +87,7 @@ def mostrar_verificacion():
 
 
 # 📋 Registro de entrada
+# 📋 Registro de entrada
 def mostrar_registro():
     st.title("📋 Registro de entrada de analistas")
 
@@ -129,10 +130,16 @@ def mostrar_registro():
             st.error("❌ Formato incorrecto (HH:MM).")
             return
 
-    if hora_salida_real:
-        salida_valida, alerta = validar_salida_anticipada(hora_salida_real, hora_salida_asignada, novedad_final)
-        if not salida_valida:
-            st.error(alerta)
+        # Validar que la hora ingresada coincida con la hora del PC y la hora asignada
+        hora_pc = datetime.now(ZoneInfo("America/Bogota")).time()
+        diferencia_pc = abs((datetime.combine(datetime.today(), hora_pc) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
+        diferencia_asignada = abs((datetime.combine(datetime.today(), hora_salida_asignada) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
+
+        if diferencia_pc > 1 or diferencia_asignada > 1:
+            st.error(
+                f"❌ La hora de salida ingresada ({hora_salida_real.strftime('%H:%M')}) no coincide con la hora actual del sistema ({hora_pc.strftime('%H:%M')}) "
+                f"ni con la hora de salida asignada ({hora_salida_asignada.strftime('%H:%M')})."
+            )
             return
 
     if st.button("Registrar entrada"):
@@ -144,6 +151,7 @@ def mostrar_registro():
             hora_salida_real
         )
         st.success("✅ Registro exitoso.")
+
 
 # 🔓 Cierre de sesión
 def mostrar_logout():
