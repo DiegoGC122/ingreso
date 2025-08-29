@@ -183,8 +183,12 @@ def mostrar_logout():
         for key in ["usuario_autenticado", "nombre_autenticado"]:
             st.session_state.pop(key, None)
         st.rerun()
+# 🚀 Punto de entrada
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
+
+    # 🧭 Diagnóstico visual (puedes quitarlo luego)
+    st.write("📊 Estado de sesión:", dict(st.session_state))
 
     # 🔐 Verificación por código
     if st.session_state.get("fase_verificacion") == "codigo":
@@ -216,4 +220,4 @@ def main():
 
     # 🔐 Mostrar login si no hay sesión activa
     mostrar_login()
-
+    return
