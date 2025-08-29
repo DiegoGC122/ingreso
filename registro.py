@@ -54,7 +54,7 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
         st.error(f"❌ Error al enviar el correo: {e}")
 
 # ✅ Validar y registrar entrada
-def validar_registro(nombre, supervisor, novedad, correo_autenticado, hora_salida_real):
+def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     correo_esperado = buscar_correo(nombre)
 
     if normalizar(correo_autenticado) != normalizar(correo_esperado):
@@ -67,8 +67,9 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado, hora_salid
         return
 
     hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
-    hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre)
+    hora_entrada_str = hora_entrada_real.strftime("%H:%M:%S")  # ✅ Convertir a string para SQLite
 
+    hora_entrada_asignada, _ = obtener_horario_asignado(nombre)
     if not hora_entrada_asignada:
         st.warning("⚠️ No tienes turno asignado hoy.")
         return
@@ -78,58 +79,38 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado, hora_salid
     h2 = datetime.combine(hoy, hora_entrada_real)
     minutos_diferencia = (h2 - h1).total_seconds() / 60
 
-    salida_real_str = hora_salida_real.strftime('%H:%M') if hora_salida_real else "No registrada"
-
-    if minutos_diferencia > 5 and novedad in [None, "", "None"]:
+    estado = "OK"
+    if minutos_diferencia > 5 and not novedad:
         estado = "Tarde"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
             f"👤 Supervisor a cargo: {supervisor}\n"
             f"📅 Fecha: {hoy}\n"
-            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
+            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_str}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
-            f"🕕 Hora de salida real: {salida_real_str}\n"
             f"📌 Estado: Llegada tarde\n"
             f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
         )
         enviar_correo_personalizado(nombre, supervisor, "Alerta de llegada tarde", mensaje)
         st.warning("📧 Se ha enviado una alerta por tardanza.")
-
-    elif novedad not in [None, "", "None"]:
+    elif novedad:
         estado = "Con novedad"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
             f"👤 Supervisor a cargo: {supervisor}\n"
             f"📅 Fecha: {hoy}\n"
-            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_real.strftime('%H:%M')}\n"
+            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_str}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
-            f"🕕 Hora de salida real: {salida_real_str}\n"
             f"📌 Estado: Con novedad\n"
             f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
             f"No se considera tardanza por justificación."
         )
         enviar_correo_personalizado(nombre, supervisor, "Novedad registrada", mensaje)
         st.warning("📧 Se ha enviado una alerta por novedad.")
-
     else:
-        estado = "OK"
         st.success("✅ Registro guardado correctamente. No se requiere alerta.")
 
-    guardar_registro(nombre, hora_entrada_real, hora_salida_real, novedad, estado, supervisor)
-
-# 🕒 Validar salida anticipada o desincronizada
-def validar_salida_anticipada(hora_salida_real, hora_salida_asignada, novedad):
-    hora_actual = datetime.now(ZoneInfo("America/Bogota")).time()
-    diferencia = abs((datetime.combine(datetime.today(), hora_actual) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
-
-    if diferencia >= 1 and not novedad:
-        alerta = (
-            f"❌ La hora de salida registrada ({hora_salida_real.strftime('%H:%M')}) "
-            f"no coincide con la hora actual del sistema ({hora_actual.strftime('%H:%M')}). "
-            f"Diferencia de {int(diferencia)} minutos. Debes registrar una novedad para justificar."
-        )
-        return False, alerta
-    return True, None
+    guardar_registro(nombre, hora_entrada_str, None, novedad, estado, supervisor)
 
 # 🗂️ Insertar login exitoso en base de datos SQLite
 def insertar_login(nombre, correo):
@@ -148,7 +129,6 @@ def insertar_login(nombre, correo):
     cursor.close()
     conn.close()
 
-
 # 🗂️ Guardar registro de entrada en base de datos SQLite
 def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervisor):
     conn = conectar_sqlite()
@@ -163,10 +143,54 @@ def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervi
         supervisor,
         hoy,
         hora_entrada,
-        hora_salida if hora_salida else None,
+        hora_salida,
         novedad if novedad else "Sin novedad",
         estado
     ))
     conn.commit()
     cursor.close()
     conn.close()
+
+# 🚪 Verificar si el analista ya ingresó pero no ha registrado salida
+def verificar_ingreso_pendiente(nombre):
+    conn = conectar_sqlite()
+    cursor = conn.cursor()
+
+    fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
+    cursor.execute("""
+        SELECT id FROM log_registros
+        WHERE nombre = ? AND fecha = ? AND hora_salida IS NULL
+        ORDER BY hora_entrada DESC LIMIT 1
+    """, (nombre, fecha))
+    resultado = cursor.fetchone()
+    conn.close()
+    return bool(resultado)
+
+# 🚪 Registrar salida del analista
+def registrar_salida(nombre):
+    conn = conectar_sqlite()
+    cursor = conn.cursor()
+
+    fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
+    hora_salida = datetime.now(ZoneInfo("America/Bogota")).time().strftime("%H:%M:%S")
+
+    cursor.execute("""
+        SELECT id FROM log_registros
+        WHERE nombre = ? AND fecha = ? AND hora_salida IS NULL
+        ORDER BY hora_entrada DESC LIMIT 1
+    """, (nombre, fecha))
+    resultado = cursor.fetchone()
+
+    if resultado:
+        registro_id = resultado[0]
+        cursor.execute("""
+            UPDATE log_registros
+            SET hora_salida = ?
+            WHERE id = ?
+        """, (hora_salida, registro_id))
+        conn.commit()
+        conn.close()
+        return True
+    else:
+        conn.close()
+        return False
