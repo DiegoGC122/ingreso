@@ -200,9 +200,10 @@ def registrar_salida(nombre):
 
 # 📤 Exportar registros desde SQLite como Excel
 def exportar_excel_desde_sqlite():
-    conn = sqlite3.connect("registro.db")
+    conn = conectar_sqlite()
     query = "SELECT * FROM log_registros ORDER BY fecha DESC, hora_entrada DESC"
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
+
 
