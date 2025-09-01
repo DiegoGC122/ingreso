@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from io import BytesIO
 
 from login import validar_login
 from registro import (
@@ -9,7 +10,8 @@ from registro import (
     obtener_horario_asignado,
     insertar_login,
     registrar_salida,
-    verificar_ingreso_pendiente
+    verificar_ingreso_pendiente,
+    exportar_excel_desde_sqlite
 )
 from correo_analistas import CORREOS_SUPERVISORES_INDIVIDUALES, normalizar
 from verificacion import enviar_codigo_desde_gmail, generar_codigo_temporal
@@ -120,13 +122,11 @@ def mostrar_registro():
     novedad_final = None if novedad == "Sin novedad" else novedad
 
     if st.button("Registrar entrada"):
-        # Evaluar puntualidad
         if hora_actual > hora_entrada_asignada:
             mensaje_puntualidad = "✉️ Se ha enviado correo por llegada tarde."
         else:
             mensaje_puntualidad = "🕓 Llegada puntual o anticipada."
 
-        # Guardar registro
         validar_registro(
             nombre_seleccionado.strip(),
             supervisor,
@@ -136,7 +136,6 @@ def mostrar_registro():
 
         st.success("✅ Registro exitoso.")
         st.info(mensaje_puntualidad)
-
 
 # 🚪 Registro de salida
 def mostrar_salida():
@@ -193,31 +192,53 @@ def mostrar_logout():
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
 
+    # 🔐 Verificación por código
     if st.session_state.get("fase_verificacion") == "codigo":
         mostrar_verificacion()
         return
 
+    # ✅ Usuario autenticado
     if st.session_state.get("usuario_autenticado") and st.session_state.get("nombre_autenticado"):
         mostrar_logout()
 
+        # 🔁 Redirección forzada a salida
         if st.session_state.get("redirigir_a_salida"):
             st.session_state.pop("redirigir_a_salida")
             mostrar_salida()
             return
 
+        # 🔁 Si ya ingresó y no ha salido, mostrar salida directamente
         if verificar_ingreso_pendiente(st.session_state["nombre_autenticado"]):
             mostrar_salida()
             return
 
-        tab1, tab2 = st.tabs(["📋 Registro de ingreso", "🚪 Registro de salida"])
+        # 🗂️ Interfaz principal con pestañas
+        tab1, tab2, tab3 = st.tabs(["📋 Registro de ingreso", "🚪 Registro de salida", "📊 Reportes"])
+
         with tab1:
             mostrar_registro()
         with tab2:
             mostrar_salida()
+        with tab3:
+            st.header("📊 Reportes de asistencia")
+
+            df = exportar_excel_desde_sqlite()
+
+            if not df.empty:
+                buffer = BytesIO()
+                df.to_excel(buffer, index=False)
+                buffer.seek(0)
+                st.download_button(
+                    label="📥 Descargar registros en Excel",
+                    data=buffer,
+                    file_name="registros.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.info("📁 No hay registros disponibles para exportar.")
         return
 
+    # 🔐 Usuario no autenticado
     mostrar_login()
-
 if __name__ == "__main__":
     main()
-    

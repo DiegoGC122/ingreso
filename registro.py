@@ -3,6 +3,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import smtplib
 from email.mime.text import MIMEText
+import pandas as pd
+import sqlite3
 
 from data import cargar_turnos, obtener_horario_asignado, obtener_nombres_analistas
 from config import (
@@ -10,12 +12,6 @@ from config import (
     CORREOS_JEFES, conectar_sqlite
 )
 from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_SUPERVISORES_INDIVIDUALES
-
-import pandas as pd
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from config import RUTA_REGISTROS
-from registro import guardar_evento  # Asegúrate de importar esta función
 
 # 🔍 Buscar correo por nombre
 def buscar_correo(nombre_entrada):
@@ -60,9 +56,6 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
         st.error(f"❌ Error al enviar el correo: {e}")
 
 # ✅ Validar y registrar entrada
-
-
-
 def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     correo_esperado = buscar_correo(nombre)
 
@@ -119,15 +112,7 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     else:
         st.success("✅ Registro guardado correctamente. No se requiere alerta.")
 
-    # ✅ Guardar evento en Excel
-    guardar_evento(
-        nombre=nombre.strip(),
-        tipo="Ingreso",
-        hora_evento=hora_entrada_real,
-        novedad=novedad,
-        estado=estado
-    )
-
+    guardar_registro(nombre, hora_entrada_str, None, novedad, estado, supervisor)
 
 # 🗂️ Insertar login exitoso en base de datos SQLite
 def insertar_login(nombre, correo):
@@ -208,44 +193,16 @@ def registrar_salida(nombre):
         """, (hora_salida_str, registro_id))
         conn.commit()
         conn.close()
-
-        # ✅ También guardar en Excel
-        guardar_evento(
-            nombre=nombre.strip(),
-            tipo="Salida",
-            hora_evento=hora_salida_obj,
-            novedad=None,
-            estado="Registrado"
-        )
-
         return True
     else:
         conn.close()
         return False
 
-
-def guardar_evento(nombre, tipo, hora_evento, novedad=None, estado="OK"):
-    fecha_local = datetime.now(ZoneInfo("America/Bogota")).date()
-    registro = {
-        "nombre": nombre,
-        "fecha": fecha_local,
-        "tipo": tipo,  # "Ingreso" o "Salida"
-        "hora_entrada": hora_evento.strftime("%H:%M") if tipo == "Ingreso" else "",
-        "hora_salida": hora_evento.strftime("%H:%M") if tipo == "Salida" else "",
-        "novedad": novedad if novedad else "Sin novedad",
-        "estado": estado
-    }
-
-    try:
-        df_nuevo = pd.DataFrame([registro])
-        try:
-            df_existente = pd.read_excel(RUTA_REGISTROS)
-            df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
-        except FileNotFoundError:
-            df_final = df_nuevo
-
-        df_final.to_excel(RUTA_REGISTROS, index=False)
-        print("✅ Registro guardado correctamente.")
-    except Exception as e:
-        print("❌ Error al guardar el registro:", e)
+# 📤 Exportar registros desde SQLite como Excel
+def exportar_excel_desde_sqlite():
+    conn = sqlite3.connect("registro.db")
+    query = "SELECT * FROM log_registros ORDER BY fecha DESC, hora_entrada DESC"
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
 
