@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from io import BytesIO
 
@@ -162,13 +162,18 @@ def mostrar_salida():
             st.error("❌ Formato incorrecto. Usa HH:MM.")
             return
 
-        diferencia_pc = abs((datetime.combine(datetime.today(), hora_actual) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
-        diferencia_asignada = abs((datetime.combine(datetime.today(), hora_salida_asignada) - datetime.combine(datetime.today(), hora_salida_real)).total_seconds()) / 60
+        hoy = datetime.now(ZoneInfo("America/Bogota")).date()
+        hora_actual_dt = datetime.combine(hoy, hora_actual)
+        hora_salida_real_dt = datetime.combine(hoy, hora_salida_real)
+        hora_asignada_dt = datetime.combine(hoy, hora_salida_asignada)
 
-        if diferencia_pc > 1 or diferencia_asignada > 1:
+        # Permitir registro desde 2 minutos antes de la hora asignada
+        hora_minima_permitida = hora_asignada_dt - timedelta(minutes=2)
+
+        if hora_salida_real_dt < hora_minima_permitida:
             st.error(
-                f"❌ La hora ingresada ({hora_salida_real.strftime('%H:%M')}) no coincide con la hora actual del sistema ({hora_actual.strftime('%H:%M')}) "
-                f"ni con la hora de salida asignada ({hora_salida_asignada.strftime('%H:%M')})."
+                f"❌ La hora ingresada ({hora_salida_real.strftime('%H:%M')}) es demasiado anticipada. "
+                f"Solo se permite registrar salida desde las {hora_minima_permitida.strftime('%H:%M')} en adelante."
             )
             return
 
