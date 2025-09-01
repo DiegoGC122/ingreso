@@ -11,6 +11,12 @@ from config import (
 )
 from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_SUPERVISORES_INDIVIDUALES
 
+import pandas as pd
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from config import RUTA_REGISTROS
+from registro import guardar_evento  # Asegúrate de importar esta función
+
 # 🔍 Buscar correo por nombre
 def buscar_correo(nombre_entrada):
     nombre_normalizado = normalizar(nombre_entrada)
@@ -54,6 +60,9 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
         st.error(f"❌ Error al enviar el correo: {e}")
 
 # ✅ Validar y registrar entrada
+
+
+
 def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     correo_esperado = buscar_correo(nombre)
 
@@ -67,7 +76,7 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
         return
 
     hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
-    hora_entrada_str = hora_entrada_real.strftime("%H:%M:%S")  # ✅ Convertir a string para SQLite
+    hora_entrada_str = hora_entrada_real.strftime("%H:%M:%S")
 
     hora_entrada_asignada, _ = obtener_horario_asignado(nombre)
     if not hora_entrada_asignada:
@@ -110,7 +119,15 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     else:
         st.success("✅ Registro guardado correctamente. No se requiere alerta.")
 
-    guardar_registro(nombre, hora_entrada_str, None, novedad, estado, supervisor)
+    # ✅ Guardar evento en Excel
+    guardar_evento(
+        nombre=nombre.strip(),
+        tipo="Ingreso",
+        hora_evento=hora_entrada_real,
+        novedad=novedad,
+        estado=estado
+    )
+
 
 # 🗂️ Insertar login exitoso en base de datos SQLite
 def insertar_login(nombre, correo):
@@ -172,7 +189,8 @@ def registrar_salida(nombre):
     cursor = conn.cursor()
 
     fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
-    hora_salida = datetime.now(ZoneInfo("America/Bogota")).time().strftime("%H:%M:%S")
+    hora_salida_obj = datetime.now(ZoneInfo("America/Bogota")).time()
+    hora_salida_str = hora_salida_obj.strftime("%H:%M:%S")
 
     cursor.execute("""
         SELECT id FROM log_registros
@@ -187,10 +205,47 @@ def registrar_salida(nombre):
             UPDATE log_registros
             SET hora_salida = ?
             WHERE id = ?
-        """, (hora_salida, registro_id))
+        """, (hora_salida_str, registro_id))
         conn.commit()
         conn.close()
+
+        # ✅ También guardar en Excel
+        guardar_evento(
+            nombre=nombre.strip(),
+            tipo="Salida",
+            hora_evento=hora_salida_obj,
+            novedad=None,
+            estado="Registrado"
+        )
+
         return True
     else:
         conn.close()
         return False
+
+
+def guardar_evento(nombre, tipo, hora_evento, novedad=None, estado="OK"):
+    fecha_local = datetime.now(ZoneInfo("America/Bogota")).date()
+    registro = {
+        "nombre": nombre,
+        "fecha": fecha_local,
+        "tipo": tipo,  # "Ingreso" o "Salida"
+        "hora_entrada": hora_evento.strftime("%H:%M") if tipo == "Ingreso" else "",
+        "hora_salida": hora_evento.strftime("%H:%M") if tipo == "Salida" else "",
+        "novedad": novedad if novedad else "Sin novedad",
+        "estado": estado
+    }
+
+    try:
+        df_nuevo = pd.DataFrame([registro])
+        try:
+            df_existente = pd.read_excel(RUTA_REGISTROS)
+            df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
+        except FileNotFoundError:
+            df_final = df_nuevo
+
+        df_final.to_excel(RUTA_REGISTROS, index=False)
+        print("✅ Registro guardado correctamente.")
+    except Exception as e:
+        print("❌ Error al guardar el registro:", e)
+
