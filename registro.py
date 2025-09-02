@@ -110,9 +110,23 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
         enviar_correo_personalizado(nombre, supervisor, "Novedad registrada", mensaje)
         st.warning("📧 Se ha enviado una alerta por novedad.")
     else:
-        st.success("✅ Registro guardado correctamente. No se requiere alerta.")
+        st.success("✅ Registro validado correctamente. No se requiere alerta.")
 
-    guardar_registro(nombre, hora_entrada_str, None, novedad, estado, supervisor)
+    resultado = guardar_registro(
+        nombre.strip(),
+        hora_entrada_str,
+        None,
+        novedad,
+        estado,
+        supervisor.strip()
+    )
+
+    if resultado == "registrado":
+        st.info("📥 Registro insertado en la base de datos.")
+    elif resultado == "error":
+        st.error("❌ No se pudo guardar el registro. Verifica la conexión o la estructura de la base.")
+
+
 
 # 🗂️ Insertar login exitoso en base de datos SQLite
 def insertar_login(nombre, correo):
@@ -133,25 +147,34 @@ def insertar_login(nombre, correo):
 
 # 🗂️ Guardar registro de entrada en base de datos SQLite
 def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervisor):
-    conn = conectar_sqlite()
-    cursor = conn.cursor()
-    hoy = datetime.now(ZoneInfo("America/Bogota")).date()
-    query = """
-        INSERT INTO log_registros (nombre, supervisor, fecha, hora_entrada, hora_salida, novedad, estado)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """
-    cursor.execute(query, (
-        nombre,
-        supervisor,
-        hoy,
-        hora_entrada,
-        hora_salida,
-        novedad if novedad else "Sin novedad",
-        estado
-    ))
-    conn.commit()
-    cursor.close()
-    conn.close()
+    try:
+        conn = conectar_sqlite()
+        cursor = conn.cursor()
+        hoy = datetime.now(ZoneInfo("America/Bogota")).date()
+
+        query = """
+            INSERT INTO log_registros (nombre, supervisor, fecha, hora_entrada, hora_salida, novedad, estado)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor.execute(query, (
+            nombre.strip(),
+            supervisor.strip(),
+            hoy,
+            hora_entrada.strip() if hora_entrada else None,
+            hora_salida.strip() if hora_salida else None,
+            novedad.strip() if novedad else "Sin novedad",
+            estado.strip()
+        ))
+
+        conn.commit()
+        return "registrado"
+    except Exception as e:
+        print(f"❌ Error al guardar el registro: {e}")
+        return "error"
+    finally:
+        cursor.close()
+        conn.close()
+
 
 # 🚪 Verificar si el analista ya ingresó pero no ha registrado salida
 def verificar_ingreso_pendiente(nombre):
@@ -170,33 +193,38 @@ def verificar_ingreso_pendiente(nombre):
 
 # 🚪 Registrar salida del analista
 def registrar_salida(nombre):
-    conn = conectar_sqlite()
-    cursor = conn.cursor()
+    try:
+        conn = conectar_sqlite()
+        cursor = conn.cursor()
 
-    fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
-    hora_salida_obj = datetime.now(ZoneInfo("America/Bogota")).time()
-    hora_salida_str = hora_salida_obj.strftime("%H:%M:%S")
+        fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
+        hora_salida_obj = datetime.now(ZoneInfo("America/Bogota")).time()
+        hora_salida_str = hora_salida_obj.strftime("%H:%M:%S")
 
-    cursor.execute("""
-        SELECT id FROM log_registros
-        WHERE nombre = ? AND fecha = ? AND hora_salida IS NULL
-        ORDER BY hora_entrada DESC LIMIT 1
-    """, (nombre, fecha))
-    resultado = cursor.fetchone()
-
-    if resultado:
-        registro_id = resultado[0]
+        # Buscar ingreso pendiente (sin hora de salida)
         cursor.execute("""
-            UPDATE log_registros
-            SET hora_salida = ?
-            WHERE id = ?
-        """, (hora_salida_str, registro_id))
-        conn.commit()
+            SELECT id FROM log_registros
+            WHERE nombre = ? AND fecha = ? AND hora_salida IS NULL
+            ORDER BY hora_entrada DESC LIMIT 1
+        """, (nombre.strip(), fecha))
+        resultado = cursor.fetchone()
+
+        if resultado:
+            registro_id = resultado[0]
+            cursor.execute("""
+                UPDATE log_registros
+                SET hora_salida = ?
+                WHERE id = ?
+            """, (hora_salida_str, registro_id))
+            conn.commit()
+            return "registrado"
+        else:
+            return "sin_ingreso"
+    except Exception as e:
+        print(f"❌ Error al registrar salida: {e}")
+        return "error"
+    finally:
         conn.close()
-        return True
-    else:
-        conn.close()
-        return False
 
 # 📤 Exportar registros desde SQLite como Excel
 def exportar_excel_desde_sqlite():
