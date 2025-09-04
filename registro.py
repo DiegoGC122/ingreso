@@ -57,9 +57,13 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
 
 # ✅ Validar y registrar entrada
 def validar_registro(nombre, supervisor, novedad, correo_autenticado):
-    correo_esperado = buscar_correo(nombre)
+    usuario_id = obtener_usuario_id(correo_autenticado)
+    if not usuario_id:
+        st.error("❌ Usuario no encontrado en la base de datos.")
+        return
 
-    if normalizar(correo_autenticado) != normalizar(correo_esperado):
+    correo_esperado = buscar_correo(nombre)
+    if not correo_esperado or normalizar(correo_autenticado) != normalizar(correo_esperado):
         registrar_intento_sospechoso(nombre, correo_autenticado)
         st.error("❌ El correo autenticado no coincide con el nombre seleccionado.")
         return
@@ -68,30 +72,32 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
         st.error("❌ Solo se permite el correo institucional del banco.")
         return
 
-    hora_entrada_real = datetime.now(ZoneInfo("America/Bogota")).time()
+    ahora = datetime.now(ZoneInfo("America/Bogota"))
+    hora_entrada_real = ahora.time()
     hora_entrada_str = hora_entrada_real.strftime("%H:%M:%S")
+    fecha_actual = ahora.date()
 
     hora_entrada_asignada, _ = obtener_horario_asignado(nombre)
     if not hora_entrada_asignada:
         st.warning("⚠️ No tienes turno asignado hoy.")
         return
 
-    hoy = datetime.now(ZoneInfo("America/Bogota")).date()
-    h1 = datetime.combine(hoy, hora_entrada_asignada)
-    h2 = datetime.combine(hoy, hora_entrada_real)
-    minutos_diferencia = (h2 - h1).total_seconds() / 60
+    minutos_diferencia = (
+        datetime.combine(fecha_actual, hora_entrada_real) -
+        datetime.combine(fecha_actual, hora_entrada_asignada)
+    ).total_seconds() / 60
 
     estado = "OK"
     if minutos_diferencia > 5 and not novedad:
         estado = "Tarde"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
-            f"👤 Supervisor a cargo: {supervisor}\n"
-            f"📅 Fecha: {hoy}\n"
-            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_str}\n"
+            f"👤 Supervisor: {supervisor}\n"
+            f"📅 Fecha: {fecha_actual}\n"
+            f"🕒 Hora registrada: {hora_entrada_str}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
             f"📌 Estado: Llegada tarde\n"
-            f"📄 Observación: El analista llegó {int(minutos_diferencia)} minutos después de la hora asignada. No se registró ninguna novedad."
+            f"📄 Observación: Llegó {int(minutos_diferencia)} minutos tarde sin novedad."
         )
         enviar_correo_personalizado(nombre, supervisor, "Alerta de llegada tarde", mensaje)
         st.warning("📧 Se ha enviado una alerta por tardanza.")
@@ -99,34 +105,24 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
         estado = "Con novedad"
         mensaje = (
             f"🧑 Analista: {nombre}\n"
-            f"👤 Supervisor a cargo: {supervisor}\n"
-            f"📅 Fecha: {hoy}\n"
-            f"🕒 Hora registrada (PC - Colombia): {hora_entrada_str}\n"
+            f"👤 Supervisor: {supervisor}\n"
+            f"📅 Fecha: {fecha_actual}\n"
+            f"🕒 Hora registrada: {hora_entrada_str}\n"
             f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
             f"📌 Estado: Con novedad\n"
-            f"📄 Observación: El analista registró la siguiente novedad: \"{novedad}\".\n"
-            f"No se considera tardanza por justificación."
+            f"📄 Observación: Novedad registrada: \"{novedad}\"."
         )
         enviar_correo_personalizado(nombre, supervisor, "Novedad registrada", mensaje)
         st.warning("📧 Se ha enviado una alerta por novedad.")
     else:
         st.success("✅ Registro validado correctamente. No se requiere alerta.")
 
-    resultado = guardar_registro(
-        nombre.strip(),
-        hora_entrada_str,
-        None,
-        novedad,
-        estado,
-        supervisor.strip()
-    )
+    resultado = guardar_registro(usuario_id, nombre, supervisor, hora_entrada_str, novedad, estado)
 
     if resultado == "registrado":
         st.info("📥 Registro insertado en la base de datos.")
-    elif resultado == "error":
+    else:
         st.error("❌ No se pudo guardar el registro. Verifica la conexión o la estructura de la base.")
-
-
 
 # 🗂️ Insertar login exitoso en base de datos SQLite
 def insertar_login(nombre, correo):
@@ -146,22 +142,21 @@ def insertar_login(nombre, correo):
     conn.close()
 
 # 🗂️ Guardar registro de entrada en base de datos SQLite
-def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervisor):
+def guardar_registro(usuario_id, nombre, supervisor, hora_entrada, novedad, estado):
     try:
         conn = conectar_sqlite()
         cursor = conn.cursor()
-        hoy = datetime.now(ZoneInfo("America/Bogota")).date()
+        fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
 
-        query = """
-            INSERT INTO log_registros (nombre, supervisor, fecha, hora_entrada, hora_salida, novedad, estado)
+        cursor.execute("""
+            INSERT INTO ingreso (usuario_id, nombre, supervisor, fecha, hora_entrada, novedad, estado)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """
-        cursor.execute(query, (
+        """, (
+            usuario_id,
             nombre.strip(),
             supervisor.strip(),
-            hoy,
-            hora_entrada.strip() if hora_entrada else None,
-            hora_salida.strip() if hora_salida else None,
+            fecha,
+            hora_entrada.strip(),
             novedad.strip() if novedad else "Sin novedad",
             estado.strip()
         ))
@@ -169,69 +164,109 @@ def guardar_registro(nombre, hora_entrada, hora_salida, novedad, estado, supervi
         conn.commit()
         return "registrado"
     except Exception as e:
-        print(f"❌ Error al guardar el registro: {e}")
+        print(f"❌ Error al guardar ingreso: {e}")
         return "error"
     finally:
-        cursor.close()
         conn.close()
 
 
 # 🚪 Verificar si el analista ya ingresó pero no ha registrado salida
-def verificar_ingreso_pendiente(nombre):
+def verificar_ingreso_pendiente(correo_autenticado):
     conn = conectar_sqlite()
     cursor = conn.cursor()
-
     fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
+
     cursor.execute("""
-        SELECT id FROM log_registros
-        WHERE nombre = ? AND fecha = ? AND hora_salida IS NULL
-        ORDER BY hora_entrada DESC LIMIT 1
-    """, (nombre, fecha))
+        SELECT i.id
+        FROM ingreso i
+        JOIN usuario u ON i.usuario_id = u.id
+        LEFT JOIN salida s ON s.ingreso_id = i.id
+        WHERE u.correo = ? AND i.fecha = ? AND s.id IS NULL
+        ORDER BY i.hora_entrada DESC
+    """, (correo_autenticado.strip().lower(), fecha))
+
     resultado = cursor.fetchone()
     conn.close()
-    return bool(resultado)
+    return resultado is not None
+
 
 # 🚪 Registrar salida del analista
-def registrar_salida(nombre):
+def registrar_salida(correo_autenticado):
     try:
+        if not correo_autenticado or not isinstance(correo_autenticado, str):
+            print("❌ Correo autenticado inválido.")
+            return "error"
+
         conn = conectar_sqlite()
         cursor = conn.cursor()
-
         fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
-        hora_salida_obj = datetime.now(ZoneInfo("America/Bogota")).time()
-        hora_salida_str = hora_salida_obj.strftime("%H:%M:%S")
+        hora_salida_str = datetime.now(ZoneInfo("America/Bogota")).time().strftime("%H:%M:%S")
 
-        # Buscar ingreso pendiente (sin hora de salida)
         cursor.execute("""
-            SELECT id FROM log_registros
-            WHERE nombre = ? AND fecha = ? AND hora_salida IS NULL
-            ORDER BY hora_entrada DESC LIMIT 1
-        """, (nombre.strip(), fecha))
-        resultado = cursor.fetchone()
+            SELECT i.id
+            FROM ingreso i
+            JOIN usuario u ON i.usuario_id = u.id
+            LEFT JOIN salida s ON s.ingreso_id = i.id
+            WHERE u.correo = ? AND i.fecha = ? AND s.id IS NULL
+            ORDER BY i.hora_entrada DESC
+        """, (correo_autenticado.strip().lower(), fecha))
 
-        if resultado:
-            registro_id = resultado[0]
-            cursor.execute("""
-                UPDATE log_registros
-                SET hora_salida = ?
-                WHERE id = ?
-            """, (hora_salida_str, registro_id))
-            conn.commit()
-            return "registrado"
-        else:
+        ingreso = cursor.fetchone()
+        if not ingreso:
+            print(f"⚠️ No se encontró ingreso pendiente para: {correo_autenticado}")
             return "sin_ingreso"
+
+        ingreso_id = ingreso[0]
+
+        cursor.execute("SELECT id FROM salida WHERE ingreso_id = ?", (ingreso_id,))
+        if cursor.fetchone():
+            print(f"⚠️ Ya existe salida registrada para ingreso_id: {ingreso_id}")
+            return "ya_registrado"
+
+        cursor.execute("""
+            INSERT INTO salida (ingreso_id, hora_salida)
+            VALUES (?, ?)
+        """, (ingreso_id, hora_salida_str))
+        conn.commit()
+        print(f"✅ Salida registrada para ingreso_id: {ingreso_id}")
+        return "registrado"
+
     except Exception as e:
         print(f"❌ Error al registrar salida: {e}")
         return "error"
     finally:
         conn.close()
 
+
 # 📤 Exportar registros desde SQLite como Excel
 def exportar_excel_desde_sqlite():
     conn = conectar_sqlite()
-    query = "SELECT * FROM log_registros ORDER BY fecha DESC, hora_entrada DESC"
+    query = """
+        SELECT 
+            u.correo,
+            i.nombre,
+            i.supervisor,
+            i.fecha,
+            i.hora_entrada,
+            s.hora_salida,
+            i.novedad,
+            i.estado
+        FROM ingreso i
+        JOIN usuario u ON i.usuario_id = u.id
+        LEFT JOIN salida s ON s.ingreso_id = i.id
+        ORDER BY i.fecha DESC, i.hora_entrada DESC
+    """
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
 
+
+
+def obtener_usuario_id(correo_autenticado):
+    conn = conectar_sqlite()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM usuario WHERE correo = ?", (correo_autenticado.strip().lower(),))
+    resultado = cursor.fetchone()
+    conn.close()
+    return resultado[0] if resultado else None
 
