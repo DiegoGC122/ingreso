@@ -168,7 +168,7 @@ def mostrar_salida():
     hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="")
 
     # 🔽 Desplegable de nombre si no se puede recuperar automáticamente
-    nombres_disponibles = obtener_nombres_usuarios()  # Debes definir esta función para consultar nombres desde la tabla usuario
+    nombres_disponibles = obtener_nombres_analistas()  # Debes definir esta función para consultar nombres desde la tabla usuario
     nombre_manual = st.selectbox("Selecciona tu nombre", nombres_disponibles, index=nombres_disponibles.index(nombre_autenticado) if nombre_autenticado in nombres_disponibles else 0)
 
     col1, col2 = st.columns([2, 1])
