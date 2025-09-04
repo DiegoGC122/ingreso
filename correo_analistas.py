@@ -42,7 +42,8 @@ CORREOS_ANALISTAS = {
     "PAOLA ANDREA BARRETO PATARROYO": "paolaandrea.barreto.contractor@bbva.com",
     "HEIDY ZULIEN ULLOA GARCES": "heidyzulien.ulloa.contractor@bbva.com",
     "JESSICA PAOLA MONTES CASALINS": "jessicapaola.montes.contractor@bbva.com",
-    "FABER SEBASTIAN FÚQUENE HERNANDEZ": "fabersebastian.fuquene.contractor@bbva.com"
+    "FABER SEBASTIAN FÚQUENE HERNANDEZ": "fabersebatian.fuquene.contractor@bbva.com",
+
 }
 
 CORREOS_SUPERVISORES_INDIVIDUALES={

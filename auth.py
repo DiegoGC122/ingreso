@@ -32,3 +32,4 @@ def registrar_acceso(nombre, correo, evento):
 
     conn.commit()
     conn.close()
+# Diccionario de correos para analistas

@@ -8,7 +8,6 @@ from registro import (
     validar_registro,
     obtener_nombres_analistas,
     obtener_horario_asignado,
-    insertar_login,
     registrar_salida,
     verificar_ingreso_pendiente,
     exportar_excel_desde_sqlite
@@ -29,7 +28,6 @@ def mostrar_login():
 
         nombre = validar_login(correo, password)
         if nombre:
-            insertar_login(nombre, correo)
             codigo = generar_codigo_temporal()
             enviado = enviar_codigo_desde_gmail(correo, codigo)
             if enviado:
@@ -167,7 +165,6 @@ def mostrar_salida():
         hora_salida_real_dt = datetime.combine(hoy, hora_salida_real)
         hora_asignada_dt = datetime.combine(hoy, hora_salida_asignada)
 
-        # Permitir registro desde 2 minutos antes de la hora asignada
         hora_minima_permitida = hora_asignada_dt - timedelta(minutes=2)
 
         if hora_salida_real_dt < hora_minima_permitida:
@@ -177,11 +174,15 @@ def mostrar_salida():
             )
             return
 
-        exito = registrar_salida(nombre_autenticado)
-        if exito:
+        resultado = registrar_salida(correo_autenticado)
+        if resultado == "registrado":
             st.success("✅ Salida registrada correctamente.")
-        else:
+        elif resultado == "ya_registrado":
+            st.warning("⚠️ Ya se había registrado una salida para hoy.")
+        elif resultado == "sin_ingreso":
             st.warning("⚠️ No se encontró un ingreso pendiente para hoy.")
+        else:
+            st.error("❌ Error al registrar salida.")
 
 # 🔓 Cierre de sesión
 def mostrar_logout():
@@ -193,6 +194,7 @@ def mostrar_logout():
                 st.session_state.pop(key, None)
         st.rerun()
 
+# 🚀 Punto de entrada
 # 🚀 Punto de entrada
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
@@ -213,7 +215,7 @@ def main():
             return
 
         # 🔁 Si ya ingresó y no ha salido, mostrar salida directamente
-        if verificar_ingreso_pendiente(st.session_state["nombre_autenticado"]):
+        if verificar_ingreso_pendiente(st.session_state["usuario_autenticado"]):
             mostrar_salida()
             return
 

@@ -2,7 +2,6 @@ import bcrypt
 from config import conectar_sqlite
 from correo_analistas import CORREOS_ANALISTAS
 
-# 🧠 Equivalencias de nombres que no coinciden con el diccionario
 EQUIVALENCIAS = {
     "JULIAN DAVID CHAPARRO VARGAS": "JUAN DAVID CHAPARRO VARGAS",
     "ANA MILENA SOLANO BRAVO": "ANA MARIA SOLANO",
@@ -13,7 +12,6 @@ EQUIVALENCIAS = {
     "ANDREA CAROLINA TORRES NUÑEZ": "ANDREA CAROLINA TORRES"
 }
 
-# 📧 Correos personalizados para supervisores y excepciones
 CORREOS_MANUALES = {
     "ANDREA CAROLINA TORRES NUÑEZ": "andreacarolina.torres.contractor@bbva.com",
     "JOSE GUILLERMO LOZANO GUERRA": "joseguillermo.lozano.contractor@bbva.com",
@@ -23,7 +21,6 @@ CORREOS_MANUALES = {
     "JULIAN DAVID CHAPARRO VARGAS": "juandavid.chaparro.contractor@bbva.com"
 }
 
-# 🔐 Diccionario de contraseñas por nombre
 CONTRASEÑAS = {
     "KAREN JULIANA CEPEDA GARCIA": "T033230",
     "ANDREA CAROLINA TORRES NUÑEZ": "T002964",
@@ -71,10 +68,7 @@ def insertar_usuarios():
 
     for nombre, password in CONTRASEÑAS.items():
         nombre_corregido = EQUIVALENCIAS.get(nombre, nombre)
-        correo = CORREOS_ANALISTAS.get(nombre_corregido)
-
-        if not correo:
-            correo = CORREOS_MANUALES.get(nombre)
+        correo = CORREOS_ANALISTAS.get(nombre_corregido) or CORREOS_MANUALES.get(nombre)
 
         if not correo:
             print(f"❌ No se encontró correo para: {nombre} (corregido: {nombre_corregido})")
@@ -84,13 +78,28 @@ def insertar_usuarios():
 
         try:
             cursor.execute(
-                "INSERT INTO usuarios (nombre, correo, contraseña_hash, rol, activo) VALUES (?, ?, ?, ?, ?)",
-                (nombre, correo, hashed, "analista", 1)
+                "INSERT INTO usuario (correo, contrasena) VALUES (?, ?)",
+                (correo, hashed)
             )
             conn.commit()
             print(f"✅ Usuario insertado: {nombre}")
         except Exception as e:
             print(f"⚠️ Error con {nombre}: {e}")
+
+    # 🔐 Insertar tu usuario administrativo
+    correo_admin = "diegofernando.gonzalez.contractor@bbva.com"
+    password_admin = "Admin123"
+    hashed_admin = bcrypt.hashpw(password_admin.encode(), bcrypt.gensalt()).decode()
+
+    try:
+        cursor.execute(
+            "INSERT INTO usuario (correo, contrasena) VALUES (?, ?)",
+            (correo_admin, hashed_admin)
+        )
+        conn.commit()
+        print(f"✅ Usuario administrativo insertado: {correo_admin}")
+    except Exception as e:
+        print(f"⚠️ Error al insertar tu usuario: {e}")
 
     conn.close()
 
