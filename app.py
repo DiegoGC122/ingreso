@@ -17,6 +17,8 @@ from correo_analistas import CORREOS_SUPERVISORES_INDIVIDUALES, normalizar
 from verificacion import enviar_codigo_desde_gmail, generar_codigo_temporal
 from init_db import crear_base_si_no_existe
 crear_base_si_no_existe()
+from config import conectar_sqlite
+
 
 
 # 🔐 Pantalla de login
@@ -213,6 +215,42 @@ def mostrar_logout():
                 st.session_state.pop(key, None)
         st.rerun()
 
+
+def mostrar_reportes():
+    st.header("📊 Reportes de asistencia")
+
+    conn = conectar_sqlite()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, ingreso_id, hora_salida, nombre
+        FROM salida
+        ORDER BY id DESC
+    """)
+    registros = cursor.fetchall()
+    conn.close()
+
+    if registros:
+        import pandas as pd
+        from io import BytesIO
+
+        columnas = ["ID", "Ingreso ID", "Hora de salida", "Nombre"]
+        df = pd.DataFrame(registros, columns=columnas)
+
+        buffer = BytesIO()
+        df.to_excel(buffer, index=False)
+        buffer.seek(0)
+
+        st.download_button(
+            label="📥 Descargar registros de salida en Excel",
+            data=buffer,
+            file_name="registros_salida.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.info("📁 No hay registros de salida disponibles para exportar.")
+
+
 # 🚀 Punto de entrada
 # 🚀 Punto de entrada
 def main():
@@ -254,20 +292,35 @@ def main():
         with tab3:
             st.header("📊 Reportes de asistencia")
 
-            df = exportar_excel_desde_sqlite()
+            conn = conectar_sqlite()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, ingreso_id, hora_salida, nombre
+                FROM salida
+                ORDER BY id DESC
+            """)
+            registros = cursor.fetchall()
+            conn.close()
 
-            if not df.empty:
+            if registros:
+                import pandas as pd
+                from io import BytesIO
+
+                columnas = ["ID", "Ingreso ID", "Hora de salida", "Nombre"]
+                df = pd.DataFrame(registros, columns=columnas)
+
                 buffer = BytesIO()
                 df.to_excel(buffer, index=False)
                 buffer.seek(0)
+
                 st.download_button(
-                    label="📥 Descargar registros en Excel",
+                    label="📥 Descargar registros de salida en Excel",
                     data=buffer,
-                    file_name="registros.xlsx",
+                    file_name="registros_salida.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             else:
-                st.info("📁 No hay registros disponibles para exportar.")
+                st.info("📁 No hay registros de salida disponibles para exportar.")
         return
 
     # 🔐 Usuario no autenticado
