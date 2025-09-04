@@ -16,10 +16,19 @@ from correo_analistas import CORREOS_ANALISTAS, normalizar, CORREOS_SUPERVISORES
 # 🔍 Buscar correo por nombre
 def buscar_correo(nombre_entrada):
     nombre_normalizado = normalizar(nombre_entrada)
+
+    # Buscar en analistas
     for nombre_diccionario, correo in CORREOS_ANALISTAS.items():
         if normalizar(nombre_diccionario) == nombre_normalizado:
             return correo
+
+    # Buscar en supervisores
+    for nombre_diccionario, correo in CORREOS_SUPERVISORES_INDIVIDUALES.items():
+        if normalizar(nombre_diccionario) == nombre_normalizado:
+            return correo
+
     return None
+
 
 # 🛡️ Registrar intento sospechoso
 def registrar_intento_sospechoso(nombre, correo_autenticado):

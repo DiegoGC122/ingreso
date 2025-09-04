@@ -11,6 +11,7 @@ from registro import (
     registrar_salida,
     verificar_ingreso_pendiente,
     exportar_excel_desde_sqlite
+    
 )
 from correo_analistas import CORREOS_SUPERVISORES_INDIVIDUALES, normalizar
 from verificacion import enviar_codigo_desde_gmail, generar_codigo_temporal
@@ -100,9 +101,16 @@ def mostrar_registro():
         st.warning("⚠️ Recuerda seleccionar tu propio nombre.")
         return
 
-    supervisor = st.selectbox("Selecciona tu supervisor", list(CORREOS_SUPERVISORES_INDIVIDUALES.keys()))
-    hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre_seleccionado)
+    # 🔍 Detectar si el usuario es supervisor directo
+    es_supervisor = correo_autenticado in CORREOS_SUPERVISORES_INDIVIDUALES
 
+    if es_supervisor:
+        supervisor = nombre_autenticado  # se autodeclara como supervisor
+        st.info("👤 Eres supervisor. No necesitas seleccionar uno.")
+    else:
+        supervisor = st.selectbox("Selecciona tu supervisor", list(CORREOS_SUPERVISORES_INDIVIDUALES.keys()))
+
+    hora_entrada_asignada, hora_salida_asignada = obtener_horario_asignado(nombre_seleccionado)
     if not hora_entrada_asignada or not hora_salida_asignada:
         st.error("❌ No tienes turno asignado hoy.")
         return
@@ -153,36 +161,44 @@ def mostrar_salida():
     st.markdown(f"**Hora actual (PC - Colombia):** `{hora_actual.strftime('%H:%M')}`")
 
     hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="")
-    if st.button("Registrar salida"):
-        try:
-            hora_salida_real = datetime.strptime(hora_salida_real_str.strip(), "%H:%M").time()
-        except ValueError:
-            st.error("❌ Formato incorrecto. Usa HH:MM.")
-            return
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        if st.button("Registrar salida"):
+            try:
+                hora_salida_real = datetime.strptime(hora_salida_real_str.strip(), "%H:%M").time()
+            except ValueError:
+                st.error("❌ Formato incorrecto. Usa HH:MM.")
+                return
 
-        hoy = datetime.now(ZoneInfo("America/Bogota")).date()
-        hora_actual_dt = datetime.combine(hoy, hora_actual)
-        hora_salida_real_dt = datetime.combine(hoy, hora_salida_real)
-        hora_asignada_dt = datetime.combine(hoy, hora_salida_asignada)
+            hoy = datetime.now(ZoneInfo("America/Bogota")).date()
+            hora_actual_dt = datetime.combine(hoy, hora_actual)
+            hora_salida_real_dt = datetime.combine(hoy, hora_salida_real)
+            hora_asignada_dt = datetime.combine(hoy, hora_salida_asignada)
 
-        hora_minima_permitida = hora_asignada_dt - timedelta(minutes=2)
+            hora_minima_permitida = hora_asignada_dt - timedelta(minutes=2)
 
-        if hora_salida_real_dt < hora_minima_permitida:
-            st.error(
-                f"❌ La hora ingresada ({hora_salida_real.strftime('%H:%M')}) es demasiado anticipada. "
-                f"Solo se permite registrar salida desde las {hora_minima_permitida.strftime('%H:%M')} en adelante."
-            )
-            return
+            if hora_salida_real_dt < hora_minima_permitida:
+                st.error(
+                    f"❌ La hora ingresada ({hora_salida_real.strftime('%H:%M')}) es demasiado anticipada. "
+                    f"Solo se permite registrar salida desde las {hora_minima_permitida.strftime('%H:%M')} en adelante."
+                )
+                return
 
-        resultado = registrar_salida(correo_autenticado)
-        if resultado == "registrado":
-            st.success("✅ Salida registrada correctamente.")
-        elif resultado == "ya_registrado":
-            st.warning("⚠️ Ya se había registrado una salida para hoy.")
-        elif resultado == "sin_ingreso":
-            st.warning("⚠️ No se encontró un ingreso pendiente para hoy.")
-        else:
-            st.error("❌ Error al registrar salida.")
+            resultado = registrar_salida(correo_autenticado)
+            if resultado == "registrado":
+                st.success("✅ Salida registrada correctamente.")
+            elif resultado == "ya_registrado":
+                st.warning("⚠️ Ya se había registrado una salida para hoy.")
+            elif resultado == "sin_ingreso":
+                st.warning("⚠️ No se encontró un ingreso pendiente para hoy.")
+            else:
+                st.error("❌ Error al registrar salida.")
+
+    with col2:
+        if st.button("⬅️ Volver al formulario de ingreso"):
+            st.session_state["redirigir_a_ingreso"] = True
+            st.rerun()
+
 
 # 🔓 Cierre de sesión
 def mostrar_logout():
@@ -212,6 +228,12 @@ def main():
         if st.session_state.get("redirigir_a_salida"):
             st.session_state.pop("redirigir_a_salida")
             mostrar_salida()
+            return
+
+        # 🔁 Redirección forzada a ingreso
+        if st.session_state.get("redirigir_a_ingreso"):
+            st.session_state.pop("redirigir_a_ingreso")
+            mostrar_registro()
             return
 
         # 🔁 Si ya ingresó y no ha salido, mostrar salida directamente
@@ -247,5 +269,6 @@ def main():
 
     # 🔐 Usuario no autenticado
     mostrar_login()
+
 if __name__ == "__main__":
     main()
