@@ -200,7 +200,7 @@ def verificar_ingreso_pendiente(correo_autenticado):
 
 
 # 🚪 Registrar salida del analista
-def registrar_salida(correo_autenticado):
+def registrar_salida(correo_autenticado, nombre_manual=None):
     try:
         if not correo_autenticado or not isinstance(correo_autenticado, str):
             print("❌ Correo autenticado inválido.")
@@ -231,11 +231,9 @@ def registrar_salida(correo_autenticado):
         if ingreso:
             ingreso_id, nombre = ingreso
         else:
-            # No hay ingreso, usar ingreso_id = NULL y obtener nombre desde usuario
             ingreso_id = None
-            cursor.execute("SELECT nombre FROM ingreso WHERE usuario_id = (SELECT id FROM usuario WHERE correo = ?) ORDER BY fecha DESC LIMIT 1", (correo_autenticado.strip().lower(),))
-            nombre_resultado = cursor.fetchone()
-            nombre = nombre_resultado[0] if nombre_resultado else "Sin ingreso"
+            # Usar nombre manual si fue proporcionado
+            nombre = nombre_manual or st.session_state.get("nombre_autenticado", "Sin ingreso")
 
         # Insertar salida
         if tiene_columna_nombre:
@@ -250,7 +248,7 @@ def registrar_salida(correo_autenticado):
             """, (ingreso_id, hora_salida_str))
 
         conn.commit()
-        print(f"✅ Salida registrada (ingreso_id: {ingreso_id})")
+        print(f"✅ Salida registrada (ingreso_id: {ingreso_id}, nombre: {nombre})")
         return "registrado"
 
     except Exception as e:
@@ -258,6 +256,7 @@ def registrar_salida(correo_autenticado):
         return "error"
     finally:
         conn.close()
+
 
 
 # 📤 Exportar registros desde SQLite como Excel
