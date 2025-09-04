@@ -15,6 +15,9 @@ from registro import (
 )
 from correo_analistas import CORREOS_SUPERVISORES_INDIVIDUALES, normalizar
 from verificacion import enviar_codigo_desde_gmail, generar_codigo_temporal
+from init_db import crear_base_si_no_existe
+crear_base_si_no_existe()
+
 
 # 🔐 Pantalla de login
 def mostrar_login():
