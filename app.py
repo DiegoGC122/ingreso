@@ -165,15 +165,21 @@ def mostrar_salida():
     hora_actual = datetime.now(ZoneInfo("America/Bogota")).time()
     st.markdown(f"**Hora actual (PC - Colombia):** `{hora_actual.strftime('%H:%M')}`")
 
-    hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="")
+    hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="", key="hora_salida_real")
 
-    # 🔽 Desplegable de nombre si no se puede recuperar automáticamente
-    nombres_disponibles = obtener_nombres_analistas()  # Debes definir esta función para consultar nombres desde la tabla usuario
-    nombre_manual = st.selectbox("Selecciona tu nombre", nombres_disponibles, index=nombres_disponibles.index(nombre_autenticado) if nombre_autenticado in nombres_disponibles else 0)
+    # 🔽 Desplegable de nombre con clave única para evitar duplicación
+    nombres_disponibles = obtener_nombres_analistas()  # Esta función debe consultar nombres desde la tabla usuario o ingreso
+    index_predeterminado = nombres_disponibles.index(nombre_autenticado) if nombre_autenticado in nombres_disponibles else 0
+    nombre_manual = st.selectbox(
+        "Selecciona tu nombre",
+        nombres_disponibles,
+        index=index_predeterminado,
+        key="selectbox_nombre_salida"
+    )
 
     col1, col2 = st.columns([2, 1])
     with col1:
-        if st.button("Registrar salida"):
+        if st.button("Registrar salida", key="btn_registrar_salida"):
             try:
                 hora_salida_real = datetime.strptime(hora_salida_real_str.strip(), "%H:%M").time()
             except ValueError:
@@ -184,7 +190,6 @@ def mostrar_salida():
             hora_actual_dt = datetime.combine(hoy, hora_actual)
             hora_salida_real_dt = datetime.combine(hoy, hora_salida_real)
             hora_asignada_dt = datetime.combine(hoy, hora_salida_asignada)
-
             hora_minima_permitida = hora_asignada_dt - timedelta(minutes=2)
 
             if hora_salida_real_dt < hora_minima_permitida:
@@ -205,10 +210,9 @@ def mostrar_salida():
                 st.error("❌ Error al registrar salida.")
 
     with col2:
-        if st.button("⬅️ Volver al formulario de ingreso"):
+        if st.button("⬅️ Volver al formulario de ingreso", key="btn_volver_ingreso"):
             st.session_state["redirigir_a_ingreso"] = True
             st.rerun()
-
 
 # 🔓 Cierre de sesión
 def mostrar_logout():
