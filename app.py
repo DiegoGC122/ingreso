@@ -270,7 +270,6 @@ def mostrar_reportes():
 
 
 # 🚀 Punto de entrada
-# 🚀 Punto de entrada
 def main():
     st.set_page_config(page_title="Ingreso BBVA", page_icon="🔐")
 
@@ -305,40 +304,13 @@ def main():
 
         with tab1:
             mostrar_registro()
+
         with tab2:
             mostrar_salida()
+
         with tab3:
-            st.header("📊 Reportes de asistencia")
+            mostrar_reportes()  # ✅ Esta función debe estar definida en app.py
 
-            conn = conectar_sqlite()
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, ingreso_id, hora_salida, nombre
-                FROM salida
-                ORDER BY id DESC
-            """)
-            registros = cursor.fetchall()
-            conn.close()
-
-            if registros:
-                import pandas as pd
-                from io import BytesIO
-
-                columnas = ["ID", "Ingreso ID", "Hora de salida", "Nombre"]
-                df = pd.DataFrame(registros, columns=columnas)
-
-                buffer = BytesIO()
-                df.to_excel(buffer, index=False)
-                buffer.seek(0)
-
-                st.download_button(
-                    label="📥 Descargar registros de salida en Excel",
-                    data=buffer,
-                    file_name="registros_salida.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            else:
-                st.info("📁 No hay registros de salida disponibles para exportar.")
         return
 
     # 🔐 Usuario no autenticado
@@ -346,3 +318,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
