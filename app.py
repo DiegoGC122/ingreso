@@ -222,33 +222,51 @@ def mostrar_reportes():
     conn = conectar_sqlite()
     cursor = conn.cursor()
 
+    # 🔍 Obtener registros de ingreso
+    cursor.execute("""
+        SELECT id, usuario_id, nombre, supervisor, fecha, hora_entrada, novedad, estado
+        FROM ingreso
+        ORDER BY fecha DESC, hora_entrada DESC
+    """)
+    registros_ingreso = cursor.fetchall()
+
+    # 🔍 Obtener registros de salida
     cursor.execute("""
         SELECT id, ingreso_id, hora_salida, nombre
         FROM salida
         ORDER BY id DESC
     """)
-    registros = cursor.fetchall()
+    registros_salida = cursor.fetchall()
+
     conn.close()
 
-    if registros:
+    if registros_ingreso or registros_salida:
         import pandas as pd
         from io import BytesIO
 
-        columnas = ["ID", "Ingreso ID", "Hora de salida", "Nombre"]
-        df = pd.DataFrame(registros, columns=columnas)
+        # Crear DataFrames
+        df_ingreso = pd.DataFrame(registros_ingreso, columns=[
+            "ID", "Usuario ID", "Nombre", "Supervisor", "Fecha", "Hora de entrada", "Novedad", "Estado"
+        ])
+        df_salida = pd.DataFrame(registros_salida, columns=[
+            "ID", "Ingreso ID", "Hora de salida", "Nombre"
+        ])
 
+        # Crear archivo Excel con dos hojas
         buffer = BytesIO()
-        df.to_excel(buffer, index=False)
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            df_ingreso.to_excel(writer, sheet_name="Ingreso", index=False)
+            df_salida.to_excel(writer, sheet_name="Salida", index=False)
         buffer.seek(0)
 
         st.download_button(
-            label="📥 Descargar registros de salida en Excel",
+            label="📥 Descargar registros completos en Excel",
             data=buffer,
-            file_name="registros_salida.xlsx",
+            file_name="registros_completos.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     else:
-        st.info("📁 No hay registros de salida disponibles para exportar.")
+        st.info("📁 No hay registros disponibles para exportar.")
 
 
 # 🚀 Punto de entrada
