@@ -211,7 +211,7 @@ def registrar_salida(correo_autenticado):
         fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
         hora_salida_str = datetime.now(ZoneInfo("America/Bogota")).time().strftime("%H:%M:%S")
 
-        # Verificar si la columna 'nombre' existe en la tabla salida
+        # Verificar si la columna 'nombre' existe
         cursor.execute("PRAGMA table_info(salida)")
         columnas_salida = [col[1] for col in cursor.fetchall()]
         tiene_columna_nombre = "nombre" in columnas_salida
@@ -227,19 +227,17 @@ def registrar_salida(correo_autenticado):
         """, (correo_autenticado.strip().lower(), fecha))
 
         ingreso = cursor.fetchone()
-        if not ingreso:
-            print(f"⚠️ No se encontró ingreso pendiente para: {correo_autenticado}")
-            return "sin_ingreso"
 
-        ingreso_id, nombre = ingreso
+        if ingreso:
+            ingreso_id, nombre = ingreso
+        else:
+            # No hay ingreso, usar ingreso_id = NULL y obtener nombre desde usuario
+            ingreso_id = None
+            cursor.execute("SELECT nombre FROM ingreso WHERE usuario_id = (SELECT id FROM usuario WHERE correo = ?) ORDER BY fecha DESC LIMIT 1", (correo_autenticado.strip().lower(),))
+            nombre_resultado = cursor.fetchone()
+            nombre = nombre_resultado[0] if nombre_resultado else "Sin ingreso"
 
-        # Verificar si ya se registró salida
-        cursor.execute("SELECT id FROM salida WHERE ingreso_id = ?", (ingreso_id,))
-        if cursor.fetchone():
-            print(f"⚠️ Ya existe salida registrada para ingreso_id: {ingreso_id}")
-            return "ya_registrado"
-
-        # Insertar salida con o sin nombre según disponibilidad
+        # Insertar salida
         if tiene_columna_nombre:
             cursor.execute("""
                 INSERT INTO salida (ingreso_id, hora_salida, nombre)
@@ -252,7 +250,7 @@ def registrar_salida(correo_autenticado):
             """, (ingreso_id, hora_salida_str))
 
         conn.commit()
-        print(f"✅ Salida registrada para ingreso_id: {ingreso_id}")
+        print(f"✅ Salida registrada (ingreso_id: {ingreso_id})")
         return "registrado"
 
     except Exception as e:
