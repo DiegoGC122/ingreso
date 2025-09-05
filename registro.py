@@ -65,16 +65,31 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
         st.error(f"❌ Error al enviar el correo: {e}")
 
 # ✅ Validar y registrar entrada
+from correo_analistas import normalizar
+
 def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     usuario_id = obtener_usuario_id(correo_autenticado)
     if not usuario_id:
         st.error("❌ Usuario no encontrado en la base de datos.")
         return
 
-    correo_esperado = buscar_correo(nombre)
-    if not correo_esperado or normalizar(correo_autenticado) != normalizar(correo_esperado):
-        registrar_intento_sospechoso(nombre, correo_autenticado)
-        st.error("❌ El correo autenticado no coincide con el nombre seleccionado.")
+    # 🔍 Validar nombre contra base de datos (tolerante y trazable)
+    conn = conectar_sqlite()
+    cursor = conn.cursor()
+    cursor.execute("SELECT nombre FROM usuario WHERE correo = ?", (correo_autenticado,))
+    resultado = cursor.fetchone()
+    conn.close()
+
+    if resultado:
+        nombre_registrado = normalizar(resultado[0])
+        nombre_ingresado = normalizar(nombre)
+
+        if nombre_ingresado != nombre_registrado:
+            registrar_intento_sospechoso(nombre, correo_autenticado)
+            st.warning("⚠️ El nombre seleccionado no coincide con el registrado para tu correo. Se registrará con trazabilidad.")
+            # No se bloquea el registro, solo se alerta
+    else:
+        st.error("❌ No se encontró el nombre vinculado a tu correo en la base de datos.")
         return
 
     if not correo_autenticado.endswith("@bbva.com") and not correo_autenticado.endswith("@bbva.com.co"):
@@ -132,6 +147,7 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
         st.info("📥 Registro insertado en la base de datos.")
     else:
         st.error("❌ No se pudo guardar el registro. Verifica la conexión o la estructura de la base.")
+
 
 # 🗂️ Insertar login exitoso en base de datos SQLite
 def insertar_login(nombre, correo):

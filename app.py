@@ -92,6 +92,7 @@ def mostrar_verificacion():
                 st.error("❌ No se pudo reenviar el código. Intenta más tarde.")
 
 # 📋 Registro de ingreso
+
 def mostrar_registro():
     st.title("📋 Registro de entrada de analistas")
 
@@ -102,15 +103,28 @@ def mostrar_registro():
     nombres = obtener_nombres_analistas()
     nombre_seleccionado = st.selectbox("Selecciona tu nombre", nombres)
 
-    if normalizar(nombre_seleccionado) != normalizar(nombre_autenticado):
-        st.warning("⚠️ Recuerda seleccionar tu propio nombre.")
+    # 🔍 Validar nombre contra base de datos
+    conn = conectar_sqlite()
+    cursor = conn.cursor()
+    cursor.execute("SELECT nombre FROM usuario WHERE correo = ?", (correo_autenticado,))
+    resultado = cursor.fetchone()
+    conn.close()
+
+    if resultado:
+        nombre_registrado = normalizar(resultado[0])
+        nombre_ingresado = normalizar(nombre_seleccionado)
+
+        if nombre_ingresado != nombre_registrado:
+            st.warning("⚠️ El nombre seleccionado no coincide con el registrado para tu correo. Se registrará con trazabilidad.")
+    else:
+        st.error("❌ No se encontró el nombre vinculado a tu correo en la base de datos.")
         return
 
     # 🔍 Detectar si el usuario es supervisor directo
     es_supervisor = correo_autenticado in CORREOS_SUPERVISORES_INDIVIDUALES
 
     if es_supervisor:
-        supervisor = nombre_autenticado  # se autodeclara como supervisor
+        supervisor = nombre_autenticado
         st.info("👤 Eres supervisor. No necesitas seleccionar uno.")
     else:
         supervisor = st.selectbox("Selecciona tu supervisor", list(CORREOS_SUPERVISORES_INDIVIDUALES.keys()))
@@ -149,6 +163,8 @@ def mostrar_registro():
         st.info(mensaje_puntualidad)
 
 # 🚪 Registro de salida
+
+
 def mostrar_salida():
     st.title("🚪 Registro de salida")
 
@@ -168,7 +184,7 @@ def mostrar_salida():
     hora_salida_real_str = st.text_input("Hora de salida real (formato HH:MM)", value="", key="hora_salida_real")
 
     # 🔽 Desplegable de nombre con clave única para evitar duplicación
-    nombres_disponibles = obtener_nombres_analistas()  # Esta función debe consultar nombres desde la tabla usuario o ingreso
+    nombres_disponibles = obtener_nombres_analistas()
     index_predeterminado = nombres_disponibles.index(nombre_autenticado) if nombre_autenticado in nombres_disponibles else 0
     nombre_manual = st.selectbox(
         "Selecciona tu nombre",
@@ -176,6 +192,23 @@ def mostrar_salida():
         index=index_predeterminado,
         key="selectbox_nombre_salida"
     )
+
+    # 🔍 Validar nombre contra base de datos
+    conn = conectar_sqlite()
+    cursor = conn.cursor()
+    cursor.execute("SELECT nombre FROM usuario WHERE correo = ?", (correo_autenticado,))
+    resultado = cursor.fetchone()
+    conn.close()
+
+    if resultado:
+        nombre_registrado = normalizar(resultado[0])
+        nombre_ingresado = normalizar(nombre_manual)
+
+        if nombre_ingresado != nombre_registrado:
+            st.warning("⚠️ El nombre seleccionado no coincide con el registrado para tu correo. Se registrará con trazabilidad.")
+    else:
+        st.error("❌ No se encontró el nombre vinculado a tu correo en la base de datos.")
+        return
 
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -213,6 +246,7 @@ def mostrar_salida():
         if st.button("⬅️ Volver al formulario de ingreso", key="btn_volver_ingreso"):
             st.session_state["redirigir_a_ingreso"] = True
             st.rerun()
+
 
 # 🔓 Cierre de sesión
 def mostrar_logout():
