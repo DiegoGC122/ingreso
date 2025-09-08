@@ -9,17 +9,18 @@ def validar_login(correo, password):
     conn = conectar_sqlite()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT nombre, contrasena, rol FROM usuarios WHERE correo = ? AND activo = 1", (correo,))
+        cursor.execute("SELECT nombre, contrasena FROM usuario WHERE correo = ?", (correo,))
         resultado = cursor.fetchone()
         conn.close()
 
         if resultado:
-            nombre, password_hash, rol = resultado
+            nombre, password_hash = resultado
             if password_hash and bcrypt.checkpw(password.encode(), password_hash.encode()):
                 return nombre
     except Exception as e:
         st.error(f"❌ Error al validar credenciales: {e}")
     return None
+
 
 
 # 🖥️ Interfaz de login (si se usa como módulo independiente)
