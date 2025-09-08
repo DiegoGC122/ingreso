@@ -5,22 +5,20 @@ from config import conectar_sqlite
 
 # 🔐 Validar login con SQLite
 def validar_login(correo, password):
-    correo = correo.strip().lower()
     conn = conectar_sqlite()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT nombre, contrasena, rol FROM usuarios WHERE correo = ? AND activo = 1", (correo,))
+        cursor.execute("SELECT nombre, contraseña_hash, rol FROM usuarios WHERE correo = ? AND activo = 1", (correo,))
         resultado = cursor.fetchone()
         conn.close()
 
         if resultado:
             nombre, password_hash, rol = resultado
             if password_hash and bcrypt.checkpw(password.encode(), password_hash.encode()):
-                return nombre
+                return nombre  # Si luego quieres usar el rol, puedes devolver {"nombre": nombre, "rol": rol}
     except Exception as e:
         st.error(f"❌ Error al validar credenciales: {e}")
     return None
-
 
 # 🖥️ Interfaz de login (si se usa como módulo independiente)
 def mostrar_login():
