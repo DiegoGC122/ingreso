@@ -211,6 +211,11 @@ def verificar_ingreso_pendiente(correo_autenticado):
 
 
 # 🚪 Registrar salida del analista
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import sqlite3
+import streamlit as st
+
 def registrar_salida(correo_autenticado, nombre_manual=None):
     try:
         if not correo_autenticado or not isinstance(correo_autenticado, str):
@@ -219,15 +224,18 @@ def registrar_salida(correo_autenticado, nombre_manual=None):
 
         conn = conectar_sqlite()
         cursor = conn.cursor()
+
+        # Obtener fecha y hora actual del computador
         fecha = datetime.now(ZoneInfo("America/Bogota")).date().isoformat()
         hora_salida_str = datetime.now(ZoneInfo("America/Bogota")).time().strftime("%H:%M:%S")
 
-        # Verificar si la columna 'nombre' existe
+        # Verificar si la columna 'nombre' existe en la tabla salida
         cursor.execute("PRAGMA table_info(salida)")
         columnas_salida = [col[1] for col in cursor.fetchall()]
         tiene_columna_nombre = "nombre" in columnas_salida
+        tiene_columna_fecha = "fecha_salida" in columnas_salida
 
-        # Buscar ingreso pendiente
+        # Buscar ingreso pendiente para ese correo en la fecha actual
         cursor.execute("""
             SELECT i.id, i.nombre
             FROM ingreso i
@@ -243,15 +251,19 @@ def registrar_salida(correo_autenticado, nombre_manual=None):
             ingreso_id, nombre = ingreso
         else:
             ingreso_id = None
-            # Usar nombre manual si fue proporcionado
             nombre = nombre_manual or st.session_state.get("nombre_autenticado", "Sin ingreso")
 
-        # Insertar salida
-        if tiene_columna_nombre:
+        # Construir el INSERT dinámicamente según columnas disponibles
+        if tiene_columna_nombre and tiene_columna_fecha:
             cursor.execute("""
-                INSERT INTO salida (ingreso_id,fecha_salida, hora_salida, nombre)
-                VALUES (?, ?,?, ?)
-            """, (ingreso_id, hora_salida_str, nombre.strip()))
+                INSERT INTO salida (ingreso_id, fecha_salida, hora_salida, nombre)
+                VALUES (?, ?, ?, ?)
+            """, (ingreso_id, fecha, hora_salida_str, nombre.strip()))
+        elif tiene_columna_fecha:
+            cursor.execute("""
+                INSERT INTO salida (ingreso_id, fecha_salida, hora_salida)
+                VALUES (?, ?, ?)
+            """, (ingreso_id, fecha, hora_salida_str))
         else:
             cursor.execute("""
                 INSERT INTO salida (ingreso_id, hora_salida)
@@ -259,7 +271,9 @@ def registrar_salida(correo_autenticado, nombre_manual=None):
             """, (ingreso_id, hora_salida_str))
 
         conn.commit()
-        print(f"✅ Salida registrada (ingreso_id: {ingreso_id}, nombre: {nombre})")
+        conn.close()
+
+        print(f"✅ Salida registrada (ingreso_id: {ingreso_id}, nombre: {nombre}, hora: {hora_salida_str})")
         return "registrado"
 
     except Exception as e:
