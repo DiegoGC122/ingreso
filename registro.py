@@ -66,14 +66,12 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
 
 # ✅ Validar y registrar entrada
 from correo_analistas import normalizar
-
 def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     usuario_id = obtener_usuario_id(correo_autenticado)
     if not usuario_id:
         st.error("❌ Usuario no encontrado en la base de datos.")
         return
 
-    # 🔍 Validar nombre contra base de datos (tolerante y trazable)
     conn = conectar_sqlite()
     cursor = conn.cursor()
     cursor.execute("SELECT nombre FROM usuario WHERE correo = ?", (correo_autenticado,))
@@ -87,13 +85,8 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
         if nombre_ingresado != nombre_registrado:
             registrar_intento_sospechoso(nombre, correo_autenticado)
             st.warning("⚠️ El nombre seleccionado no coincide con el registrado para tu correo. Se registrará con trazabilidad.")
-            # No se bloquea el registro, solo se alerta
     else:
         st.error("❌ No se encontró el nombre vinculado a tu correo en la base de datos.")
-        return
-
-    if not correo_autenticado.endswith("@bbva.com") and not correo_autenticado.endswith("@bbva.com.co"):
-        st.error("❌ Solo se permite el correo institucional del banco.")
         return
 
     ahora = datetime.now(ZoneInfo("America/Bogota"))
@@ -102,44 +95,45 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     fecha_actual = ahora.date()
 
     hora_entrada_asignada, _ = obtener_horario_asignado(nombre)
+    estado = "OK"
+
     if not hora_entrada_asignada:
         st.warning("⚠️ No tienes turno asignado hoy.")
-        return
-
-    minutos_diferencia = (
-        datetime.combine(fecha_actual, hora_entrada_real) -
-        datetime.combine(fecha_actual, hora_entrada_asignada)
-    ).total_seconds() / 60
-
-    estado = "OK"
-    if minutos_diferencia > 5 and not novedad:
-        estado = "Tarde"
-        mensaje = (
-            f"🧑 Analista: {nombre}\n"
-            f"👤 Supervisor: {supervisor}\n"
-            f"📅 Fecha: {fecha_actual}\n"
-            f"🕒 Hora registrada: {hora_entrada_str}\n"
-            f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
-            f"📌 Estado: Llegada tarde\n"
-            f"📄 Observación: Llegó {int(minutos_diferencia)} minutos tarde sin novedad."
-        )
-        enviar_correo_personalizado(nombre, supervisor, "Alerta de llegada tarde", mensaje)
-        st.warning("📧 Se ha enviado una alerta por tardanza.")
-    elif novedad:
-        estado = "Con novedad"
-        mensaje = (
-            f"🧑 Analista: {nombre}\n"
-            f"👤 Supervisor: {supervisor}\n"
-            f"📅 Fecha: {fecha_actual}\n"
-            f"🕒 Hora registrada: {hora_entrada_str}\n"
-            f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
-            f"📌 Estado: Con novedad\n"
-            f"📄 Observación: Novedad registrada: \"{novedad}\"."
-        )
-        enviar_correo_personalizado(nombre, supervisor, "Novedad registrada", mensaje)
-        st.warning("📧 Se ha enviado una alerta por novedad.")
+        estado = "Sin turno"
     else:
-        st.success("✅ Registro validado correctamente. No se requiere alerta.")
+        minutos_diferencia = (
+            datetime.combine(fecha_actual, hora_entrada_real) -
+            datetime.combine(fecha_actual, hora_entrada_asignada)
+        ).total_seconds() / 60
+
+        if minutos_diferencia > 5 and not novedad:
+            estado = "Tarde"
+            mensaje = (
+                f"🧑 Analista: {nombre}\n"
+                f"👤 Supervisor: {supervisor}\n"
+                f"📅 Fecha: {fecha_actual}\n"
+                f"🕒 Hora registrada: {hora_entrada_str}\n"
+                f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
+                f"📌 Estado: Llegada tarde\n"
+                f"📄 Observación: Llegó {int(minutos_diferencia)} minutos tarde sin novedad."
+            )
+            enviar_correo_personalizado(nombre, supervisor, "Alerta de llegada tarde", mensaje)
+            st.warning("📧 Se ha enviado una alerta por tardanza.")
+        elif novedad:
+            estado = "Con novedad"
+            mensaje = (
+                f"🧑 Analista: {nombre}\n"
+                f"👤 Supervisor: {supervisor}\n"
+                f"📅 Fecha: {fecha_actual}\n"
+                f"🕒 Hora registrada: {hora_entrada_str}\n"
+                f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
+                f"📌 Estado: Con novedad\n"
+                f"📄 Observación: Novedad registrada: \"{novedad}\"."
+            )
+            enviar_correo_personalizado(nombre, supervisor, "Novedad registrada", mensaje)
+            st.warning("📧 Se ha enviado una alerta por novedad.")
+        else:
+            st.success("✅ Registro validado correctamente. No se requiere alerta.")
 
     resultado = guardar_registro(usuario_id, nombre, supervisor, hora_entrada_str, novedad, estado)
 
@@ -147,6 +141,7 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
         st.info("📥 Registro insertado en la base de datos.")
     else:
         st.error("❌ No se pudo guardar el registro. Verifica la conexión o la estructura de la base.")
+
 
 
 # 🗂️ Insertar login exitoso en base de datos SQLite
@@ -279,20 +274,21 @@ def registrar_salida(correo_autenticado, nombre_manual=None):
 def exportar_excel_desde_sqlite():
     conn = conectar_sqlite()
     query = """
-        SELECT 
-            u.correo,
-            i.nombre,
-            i.supervisor,
-            i.fecha,
-            i.hora_entrada,
-            s.hora_salida,
-            i.novedad,
-            i.estado
-        FROM ingreso i
-        JOIN usuario u ON i.usuario_id = u.id
-        LEFT JOIN salida s ON s.ingreso_id = i.id
-        ORDER BY i.fecha DESC, i.hora_entrada DESC
-    """
+    SELECT 
+        u.correo,
+        i.nombre,
+        i.supervisor,
+        i.fecha AS fecha_ingreso,
+        i.hora_entrada,
+        s.fecha_salida,
+        s.hora_salida,
+        i.novedad,
+        i.estado
+    FROM ingreso i
+    JOIN usuario u ON i.usuario_id = u.id
+    LEFT JOIN salida s ON s.ingreso_id = i.id
+    ORDER BY i.fecha DESC, i.hora_entrada DESC
+"""
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
