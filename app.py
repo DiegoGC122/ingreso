@@ -293,7 +293,7 @@ def mostrar_reportes():
             "ID", "Usuario ID", "Nombre", "Supervisor", "Fecha", "Hora de entrada", "Novedad", "Estado"
         ])
         df_salida = pd.DataFrame(registros_salida, columns=[
-            "ID", "Ingreso ID", "Hora de salida", "Nombre"
+            "ID", "Ingreso ID", "Fecha de salida", "Hora de salida", "Nombre"
         ])
 
         # Crear archivo Excel con dos hojas
