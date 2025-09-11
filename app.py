@@ -275,10 +275,11 @@ def mostrar_reportes():
 
     # 🔍 Obtener registros de salida
     cursor.execute("""
-        SELECT id, ingreso_id, hora_salida, nombre
-        FROM salida
-        ORDER BY id DESC
-    """)
+    SELECT id, ingreso_id, fecha_salida, hora_salida, nombre
+    FROM salida
+    ORDER BY fecha_salida DESC, hora_salida DESC
+""")
+
     registros_salida = cursor.fetchall()
 
     conn.close()
