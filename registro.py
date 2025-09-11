@@ -249,8 +249,8 @@ def registrar_salida(correo_autenticado, nombre_manual=None):
         # Insertar salida
         if tiene_columna_nombre:
             cursor.execute("""
-                INSERT INTO salida (ingreso_id, hora_salida, nombre)
-                VALUES (?, ?, ?)
+                INSERT INTO salida (ingreso_id,fecha_salida, hora_salida, nombre)
+                VALUES (?, ?,?, ?)
             """, (ingreso_id, hora_salida_str, nombre.strip()))
         else:
             cursor.execute("""
