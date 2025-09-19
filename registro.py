@@ -38,16 +38,18 @@ def registrar_intento_sospechoso(nombre, correo_autenticado):
 # 📧 Enviar correo de alerta
 def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto, cuerpo):
     correo_analista = buscar_correo(nombre_analista)
-    correo_supervisor = CORREOS_SUPERVISORES_INDIVIDUALES.get(supervisor_seleccionado)
+
+    # Obtener todos los correos de supervisores desde la lista
+    correos_supervisores = list(CORREOS_SUPERVISORES_INDIVIDUALES.values())
 
     if not correo_analista:
         st.warning(f"⚠️ No se encontró el correo del analista: {nombre_analista}")
         return
-    if not correo_supervisor:
-        st.warning(f"⚠️ No se encontró el correo del supervisor: {supervisor_seleccionado}")
+    if not correos_supervisores:
+        st.warning("⚠️ La lista de supervisores está vacía.")
         return
 
-    destinatarios = [correo_analista, correo_supervisor] + CORREOS_JEFES
+    destinatarios = [correo_analista] + correos_supervisores + CORREOS_JEFES
 
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
@@ -60,7 +62,7 @@ def enviar_correo_personalizado(nombre_analista, supervisor_seleccionado, asunto
             server.starttls()
             server.login(REMITENTE, PASSWORD)
             server.sendmail(REMITENTE, destinatarios, msg.as_string())
-        st.success("📧 Correo enviado al analista, supervisor y jefes.")
+        st.success("📧 Correo enviado al analista, todos los supervisores y jefes.")
     except Exception as e:
         st.error(f"❌ Error al enviar el correo: {e}")
 
@@ -211,11 +213,6 @@ def verificar_ingreso_pendiente(correo_autenticado):
 
 
 # 🚪 Registrar salida del analista
-from datetime import datetime
-from zoneinfo import ZoneInfo
-import sqlite3
-import streamlit as st
-
 def registrar_salida(correo_autenticado, nombre_manual=None):
     try:
         if not correo_autenticado or not isinstance(correo_autenticado, str):
@@ -316,4 +313,3 @@ def obtener_usuario_id(correo_autenticado):
     resultado = cursor.fetchone()
     conn.close()
     return resultado[0] if resultado else None
-
