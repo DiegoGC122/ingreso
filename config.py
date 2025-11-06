@@ -6,11 +6,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 📤 Configuración de correo
-SMTP_USER = os.getenv("SMTP_USER")  # ej: diegofgonzalez22@gmail.com
-SMTP_PASS = os.getenv("SMTP_PASS")  # contraseña de aplicación
-SMTP_SERVIDOR = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PUERTO = int(os.getenv("SMTP_PORT", 587))
-REMITENTE_EMAIL = os.getenv("REMITENTE_EMAIL", SMTP_USER)  # usado como 'From'
+# 📤 Configuración de correo (compatible con .env y Streamlit Cloud)
+try:
+    import streamlit as st
+    SMTP_USER = st.secrets["SMTP_USER"]
+    SMTP_PASS = st.secrets["SMTP_PASS"]
+    SMTP_SERVIDOR = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
+    SMTP_PUERTO = int(st.secrets.get("SMTP_PORT", 587))
+    REMITENTE_EMAIL = st.secrets.get("REMITENTE_EMAIL", SMTP_USER)
+except:
+    SMTP_USER = os.getenv("SMTP_USER")
+    SMTP_PASS = os.getenv("SMTP_PASS")
+    SMTP_SERVIDOR = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    SMTP_PUERTO = int(os.getenv("SMTP_PORT", 587))
+    REMITENTE_EMAIL = os.getenv("REMITENTE_EMAIL", SMTP_USER)
+
 
 # Alias para compatibilidad con funciones existentes
 REMITENTE = REMITENTE_EMAIL
