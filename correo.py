@@ -5,12 +5,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SMTP_SERVER = os.getenv("SMTP_SERVER")
-SMTP_PORT = int(os.getenv("SMTP_PORT"))
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASS = os.getenv("SMTP_PASS")
-REMITENTE_EMAIL = os.getenv("REMITENTE_EMAIL")
-SUPERVISOR_EMAIL = os.getenv("SUPERVISOR_EMAIL")  # puede ser una lista separada por comas
+
+import streamlit as st
+
+SMTP_SERVER = st.secrets["SMTP_SERVER"]
+SMTP_PORT = int(st.secrets["SMTP_PORT"])
+SMTP_USER = st.secrets["SMTP_USER"]
+SMTP_PASS = st.secrets["SMTP_PASS"]
+REMITENTE_EMAIL = st.secrets["REMITENTE_EMAIL"]
+SUPERVISOR_EMAIL = st.secrets["SUPERVISOR_EMAIL"]
+
 
 def enviar_correo(nombre, tipo_alerta, mensaje):
     asunto = f"[Alerta de ingreso] {tipo_alerta} - {nombre}"
