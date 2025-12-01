@@ -51,7 +51,7 @@ CORREOS_SUPERVISORES_INDIVIDUALES={
     "ANDREA CAROLINA TORRES NUÑEZ":"andreacarolina.torres.contractor@bbva.com",
     "JOSE GUILLERMO LOZANO GUERRA": "joseguillermo.lozano.contractor@bbva.com",
     "JURANI ROSAS":"jurani.rosas.contractor@bbva.com" ,
-    "JHON HENRY MARIN SANTOFIMIO":"johnhenry.marin.contractor@bbva.com"
+
 
 }
 
