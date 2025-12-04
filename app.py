@@ -3,6 +3,18 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from io import BytesIO
 
+
+
+from init_db import crear_base_si_no_existe
+
+@st.cache_resource
+def _init_db_once():
+    crear_base_si_no_existe()
+    return True
+
+_init_db_once()
+
+
 from login import validar_login
 from registro import (
     validar_registro,
@@ -22,21 +34,79 @@ from config import conectar_sqlite
 
 
 # 🔐 Pantalla de login
+
 def mostrar_login():
+    import sqlite3  # por si necesitas capturar errores específicos
     st.title("🔐 Iniciar sesión")
+
+    # Inputs básicos
     correo = st.text_input("Correo institucional").strip().lower()
     password = st.text_input("Contraseña", type="password")
 
     if st.button("Ingresar"):
-        if not correo.endswith("@bbva.com") and not correo.endswith("@bbva.com.co"):
+        # Validación de dominio permitido
+        if not (correo.endswith("@bbva.com") or correo.endswith("@bbva.com.co")):
             st.error("❌ Solo se permite el correo institucional del banco.")
             return
 
+        # Validación de campos vacíos
+        if not correo or not password:
+            st.error("❌ Ingresa tu correo y contraseña.")
+            return
+
+        # Autenticación (debe devolverte el nombre del usuario si es correcto)
         nombre = validar_login(correo, password)
+
         if nombre:
+            # ✅ Sincroniza el nombre en la tabla 'usuario' para este correo
+            try:
+                with conectar_sqlite() as conn:
+                    # Verifica si ya existe el usuario por correo
+                    row = conn.execute(
+                        "SELECT id, nombre FROM usuario WHERE correo = ?",
+                        (correo,)
+                    ).fetchone()
+
+                    if row:
+                        # Si existe, actualiza 'nombre' si está vacío o cambió (normalizando)
+                        nombre_actual = row[1] or ""
+                        if normalizar(nombre_actual) != normalizar(nombre):
+                            conn.execute(
+                                "UPDATE usuario SET nombre = ? WHERE id = ?",
+                                (nombre, row[0])
+                            )
+                    else:
+                        # Si no existe, crea el usuario con correo + contrasena + nombre
+                        # Nota: 'contrasena' se guarda según tu esquema actual. Recomiendo hashear en el futuro.
+                        conn.execute(
+                            "INSERT INTO usuario (correo, contrasena, nombre) VALUES (?, ?, ?)",
+                            (correo, password, nombre)
+                        )
+
+                    conn.commit()
+            except sqlite3.OperationalError as e:
+                # Error típico si la columna 'nombre' no existe o la base no es accesible
+                st.error(f"❌ Error de base de datos al sincronizar tu usuario: {e}")
+                # Diagnóstico opcional (puedes comentarlo luego)
+                try:
+                    with conectar_sqlite() as conn_dbg:
+                        tablas = conn_dbg.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+                        st.write("DEBUG Tablas:", [t[0] for t in tablas])
+                        pragma_usuario = conn_dbg.execute("PRAGMA table_info(usuario);").fetchall()
+                        st.write("DEBUG usuario:", pragma_usuario)
+                except Exception as e2:
+                    st.write(f"DEBUG No se pudo inspeccionar el esquema: {e2}")
+                # No detenemos el flujo de verificación para no bloquear al usuario
+
+            except Exception as e:
+                st.warning(f"⚠️ No se pudo sincronizar tu nombre en la base de datos: {e}")
+
+            # 📧 Generación y envío de código de verificación
             codigo = generar_codigo_temporal()
             enviado = enviar_codigo_desde_gmail(correo, codigo)
+
             if enviado:
+                # Guarda datos de verificación en sesión y avanza de fase
                 st.session_state.update({
                     "correo_pendiente_verificacion": correo,
                     "nombre_pendiente_verificacion": nombre,
@@ -46,7 +116,7 @@ def mostrar_login():
                 })
                 st.rerun()
             else:
-                st.error("❌ No se pudo enviar el código de verificación.")
+                st.error("❌ No se pudo enviar el código de verificación. Intenta de nuevo más tarde.")
         else:
             st.error("❌ Credenciales incorrectas.")
 

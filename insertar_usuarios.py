@@ -1,6 +1,8 @@
+
+import sqlite3
 import bcrypt
 from config import conectar_sqlite
-from correo_analistas import CORREOS_ANALISTAS
+from correo_analistas import CORREOS_ANALISTAS, normalizar
 
 EQUIVALENCIAS = {
     "JULIAN DAVID CHAPARRO VARGAS": "JUAN DAVID CHAPARRO VARGAS",
@@ -57,47 +59,106 @@ CONTRASEÑAS = {
     "JESSICA PAOLA MONTES CASALINS": "T035580",
     "NICOLAS ALEJANDRO URRESTI GONZALEZ":"T059706",
     "LUZ HELENA BARON MURILLO":"CE70999",
-    "JEISSON ALEXANDER BOHORQUEZ":"T060946"
+    "JEISSON ALEXANDER BOHORQUEZ":"T060946",
+    "DIEGO ANDRES REYES RAMIREZ":"T022010",
+    "PAULA ANDREA GARCES OSPINA":"CE60413",
+    "BRAYAN CAMILO ORTEGA NARVAEZ":"T033229"
 }
+
+def _ensure_usuario_nombre(conn: sqlite3.Connection):
+    """Asegura que la tabla 'usuario' tenga columna 'nombre' (por si faltara)."""
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(usuario)").fetchall()]
+    if "nombre" not in cols:
+        conn.execute("ALTER TABLE usuario ADD COLUMN nombre TEXT;")
+        conn.commit()
 
 def insertar_usuarios():
     conn = conectar_sqlite()
     cursor = conn.cursor()
 
-    for nombre, password in CONTRASEÑAS.items():
-        nombre_corregido = EQUIVALENCIAS.get(nombre, nombre)
-        correo = CORREOS_ANALISTAS.get(nombre_corregido) or CORREOS_MANUALES.get(nombre)
+    # Garantiza columna 'nombre' para evitar fallos si la DB no la tiene aún
+    _ensure_usuario_nombre(conn)
 
+    insertados, actualizados, sin_correo = 0, 0, 0
+
+    for nombre, password in CONTRASEÑAS.items():
+        # Aplica equivalencias si hay variaciones del nombre
+        nombre_corregido = EQUIVALENCIAS.get(nombre, nombre)
+
+        # Busca el correo en mapeos disponibles
+        correo = (
+            CORREOS_ANALISTAS.get(nombre_corregido)
+            or CORREOS_MANUALES.get(nombre)
+            or CORREOS_MANUALES.get(nombre_corregido)
+        )
         if not correo:
             print(f"❌ No se encontró correo para: {nombre} (corregido: {nombre_corregido})")
+            sin_correo += 1
             continue
 
+        correo_norm = (correo or "").strip().lower()
+        nombre_norm = normalizar(nombre_corregido)  # o nombre_corregido.strip()
+
+        # Genera hash de la contraseña
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
         try:
-            cursor.execute(
-                "INSERT INTO usuario (correo, contrasena) VALUES (?, ?)",
-                (correo, hashed)
-            )
+            # UPSERT: si existe, actualiza; si no, inserta
+            row = cursor.execute("SELECT id FROM usuario WHERE correo = ?", (correo_norm,)).fetchone()
+            if row:
+                cursor.execute(
+                    "UPDATE usuario SET contrasena = ?, nombre = ? WHERE id = ?",
+                    (hashed, nombre_norm, row[0])
+                )
+                actualizados += 1
+                print(f"🔄 Usuario actualizado: {nombre_norm} ({correo_norm})")
+            else:
+                cursor.execute(
+                    "INSERT INTO usuario (correo, contrasena, nombre) VALUES (?, ?, ?)",
+                    (correo_norm, hashed, nombre_norm)
+                )
+                insertados += 1
+                print(f"✅ Usuario insertado: {nombre_norm} ({correo_norm})")
+
             conn.commit()
-            print(f"✅ Usuario insertado: {nombre}")
         except Exception as e:
             print(f"⚠️ Error con {nombre}: {e}")
 
-    # 🔐 Insertar tu usuario administrativo
+    # 🔐 Admin (tu usuario)
     correo_admin = "diegofernando.gonzalez.contractor@bbva.com"
+    nombre_admin = "Diego Gonzalez"
     password_admin = "Admin123"
     hashed_admin = bcrypt.hashpw(password_admin.encode(), bcrypt.gensalt()).decode()
+    correo_admin_norm = correo_admin.strip().lower()
 
     try:
-        cursor.execute(
-            "INSERT INTO usuario (correo, contrasena) VALUES (?, ?)",
-            (correo_admin, hashed_admin)
-        )
+        row = cursor.execute("SELECT id FROM usuario WHERE correo = ?", (correo_admin_norm,)).fetchone()
+        if row:
+            cursor.execute(
+                "UPDATE usuario SET contrasena = ?, nombre = ? WHERE id = ?",
+                (hashed_admin, nombre_admin, row[0])
+            )
+            actualizados += 1
+            print(f"🔄 Usuario administrativo actualizado: {correo_admin_norm}")
+        else:
+            cursor.execute(
+                "INSERT INTO usuario (correo, contrasena, nombre) VALUES (?, ?, ?)",
+                (correo_admin_norm, hashed_admin, nombre_admin)
+            )
+            insertados += 1
+            print(f"✅ Usuario administrativo insertado: {correo_admin_norm}")
         conn.commit()
-        print(f"✅ Usuario administrativo insertado: {correo_admin}")
     except Exception as e:
-        print(f"⚠️ Error al insertar tu usuario: {e}")
+        print(f"⚠️ Error al insertar/actualizar tu usuario: {e}")
+
+    # 🧮 Resumen y muestra
+    total = cursor.execute("SELECT COUNT(*) FROM usuario").fetchone()[0]
+    print(f"\n🧮 Resumen → insertados={insertados}, actualizados={actualizados}, sin_correo={sin_correo}")
+    print(f"👥 Total usuarios en DB: {total}")
+    muestra = cursor.execute("SELECT id, correo, nombre FROM usuario ORDER BY id LIMIT 10").fetchall()
+    print("🔎 Muestra de usuarios:")
+    for r in muestra:
+        print("   ", r)
 
     conn.close()
 

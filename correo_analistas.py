@@ -40,7 +40,12 @@ CORREOS_ANALISTAS = {
     "FABER SEBASTIAN FÚQUENE HERNANDEZ": "fabersebatian.fuquene.contractor@bbva.com",
     "NICOLAS ALEJANDRO URRESTI GONZALEZ":"nicolasalejandro.urresti.contractor@bbva.com",
     "LUZ HELENA BARON MURILLO":"luzhelena.baron.contractor@bbva.com",
-    "JEISSON ALEXANDER BOHORQUEZ ":"jeissonalexander.bohorquez.contractor@bbva.com"
+    "JEISSON ALEXANDER BOHORQUEZ":"jeissonalexander.bohorquez.contractor@bbva.com",
+    "DIEGO ANDRES REYES RAMIREZ":"diegoandres.reyes.contractor@bbva.com",
+    "PAULA ANDREA GARCES OSPINA":"paulaandrea.garces.contractor@bbva.com",
+    "BRAYAN CAMILO ORTEGA NARVAEZ":"brayancamilo.ortega.contractor@bbva.com"
+
+
 
 }
 

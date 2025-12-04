@@ -1,60 +1,67 @@
-import os
-import sqlite3
 
-RUTA_DB = "registro.db"
-
-def conectar_sqlite():
-    return sqlite3.connect(RUTA_DB, check_same_thread=False)
+# init_db.py
+from config import conectar_sqlite
 
 def crear_base_si_no_existe():
-    if not os.path.exists(RUTA_DB):
-        print("📁 Base de datos no encontrada. Creando nueva base...")
-        crear_tablas()
-    else:
-        print("✅ Base de datos ya existe. No se requiere creación.")
+    """Crea tablas base si no existen y aplica migraciones mínimas."""
+    import sqlite3
 
-def crear_tablas():
-    conn = conectar_sqlite()
-    cursor = conn.cursor()
+    try:
+        with conectar_sqlite() as conn:
+            cur = conn.cursor()
 
-    # 🔐 Tabla de usuarios
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuario (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            correo TEXT UNIQUE NOT NULL,
-            contrasena TEXT NOT NULL
-        )
-    """)
+            # —— Tablas base ——
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS usuario (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    correo TEXT UNIQUE NOT NULL,
+                    contrasena TEXT NOT NULL
+                    -- 'nombre' se agrega por migración si falta
+                )
+            """)
 
-    # 🕒 Tabla de ingresos
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ingreso (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER NOT NULL,
-            nombre TEXT NOT NULL,
-            supervisor TEXT NOT NULL,
-            fecha TEXT NOT NULL,
-            hora_entrada TEXT NOT NULL,
-            novedad TEXT,
-            estado TEXT,
-            FOREIGN KEY (usuario_id) REFERENCES usuario(id)
-        )
-    """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ingreso (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER NOT NULL,
+                    nombre TEXT NOT NULL,
+                    supervisor TEXT NOT NULL,
+                    fecha TEXT NOT NULL,         -- yyyy-mm-dd
+                    hora_entrada TEXT NOT NULL,  -- HH:MM
+                    novedad TEXT,
+                    estado TEXT,
+                    FOREIGN KEY (usuario_id) REFERENCES usuario(id)
+                )
+            """)
 
-    # 🚪 Tabla de salidas con columna 'nombre'
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS salida (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ingreso_id INTEGER NOT NULL,
-            hora_salida TEXT NOT NULL,
-            nombre TEXT,
-            FOREIGN KEY (ingreso_id) REFERENCES ingreso(id)
-        )
-    """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS salida (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ingreso_id INTEGER NOT NULL,
+                    hora_salida TEXT NOT NULL,   -- HH:MM
+                    nombre TEXT,
+                    FOREIGN KEY (ingreso_id) REFERENCES ingreso(id)
+                )
+            """)
 
-    conn.commit()
-    conn.close()
-    print("✅ Tablas creadas correctamente: usuario, ingreso, salida")
+            # —— Migraciones mínimas para alinear con tu código ——
+            _migrar_agregar_columna_si_falta(conn, "usuario", "nombre", "TEXT")       # tu SELECT usa usuario.nombre
+            _migrar_agregar_columna_si_falta(conn, "salida", "fecha_salida", "TEXT")  # tu reporte usa salida.fecha_salida
 
-if __name__ == "__main__":
-    crear_base_si_no_existe()
+            # Índice útil
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_usuario_correo ON usuario (correo)")
+
+            conn.commit()
+
+    except sqlite3.OperationalError as e:
+        # Deja registro en logs
+        raise
+    except Exception as e:
+        # Deja registro en logs
+        raise
+
+def _migrar_agregar_columna_si_falta(conn, tabla, columna, tipo):
+    cur = conn.execute(f"PRAGMA table_info({tabla});")
+    cols = [r[1] for r in cur.fetchall()]  # r[1] = nombre de columna
+    if columna not in cols:
+        conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo};")
