@@ -1,0 +1,7 @@
+streamlit
+bcrypt
+pandas
+openpyxl
+python-dotenv
+xlsxwriter
+

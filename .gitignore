@@ -1,0 +1,19 @@
+
+# Ignorar archivos de Python
+__pycache__/
+*.pyc
+*.*.pyo
+*.pyd
+
+# Entornos
+.env
+.env.*
+venv/
+
+# Bases de datos locales
+*.db
+*.sqlite*
+*.sqlite3
+
+# Archivos temporales y logs
+*.log
