@@ -100,8 +100,14 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
     estado = "OK"
 
     if not hora_entrada_asignada:
-        st.warning("⚠️ No tienes turno asignado hoy.")
         estado = "Sin turno"
+        mensaje = (
+            f"🧑 Analista: {nombre}\n"
+            f"👤 Supervisor: {supervisor}\n"
+            f"📅 Fecha: {fecha_actual}\n"
+            f"🕒 Hora registrada: {hora_entrada_str}\n"
+            f"📌 Estado: Sin turno asignado"
+        )
     else:
         minutos_diferencia = (
             datetime.combine(fecha_actual, hora_entrada_real) -
@@ -135,8 +141,19 @@ def validar_registro(nombre, supervisor, novedad, correo_autenticado):
             enviar_correo_personalizado(nombre, supervisor, "Novedad registrada", mensaje)
             st.warning("📧 Se ha enviado una alerta por novedad.")
         else:
-            st.success("✅ Registro validado correctamente. No se requiere alerta.")
+            estado = "Puntual"
+            mensaje = (
+                f"🧑 Analista: {nombre}\n"
+                f"👤 Supervisor: {supervisor}\n"
+                f"📅 Fecha: {fecha_actual}\n"
+                f"🕒 Hora registrada: {hora_entrada_str}\n"
+                f"🕓 Hora asignada: {hora_entrada_asignada.strftime('%H:%M')}\n"
+                f"📌 Estado: Llegada puntual"
+            )
+            enviar_correo_personalizado(nombre, supervisor, "Registro puntual", mensaje)
+            st.success("📧 Se ha enviado un correo indicando llegada puntual.")
 
+    # Guardar registro en DB
     resultado = guardar_registro(usuario_id, nombre, supervisor, hora_entrada_str, novedad, estado)
 
     if resultado == "registrado":
